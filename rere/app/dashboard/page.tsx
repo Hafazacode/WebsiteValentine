@@ -24,7 +24,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-pink-400 to-red-300 relative overflow-hidden font-sans text-slate-800 flex items-center justify-center p-4">
       
-      {/* Background Hearts (Tetap ada biar background ga kosong saat transisi) */}
+      {/* Background Hearts */}
       {isClient && hearts.map((_, index) => (
          <motion.div
             key={index}
@@ -39,22 +39,23 @@ export default function DashboardPage() {
       {/* --- DASHBOARD CONTAINER --- */}
       <motion.div
         className="w-full max-w-4xl h-[85vh] flex flex-col relative z-10"
-        
-        // EFEK MASUK DARI BAWAH (Seolah-olah didorong halaman welcome)
         initial={{ y: "100vh" }} 
         animate={{ y: 0 }} 
-        transition={{ duration: 0.6, ease: "easeOut" }} // Durasi samain kayak welcome biar smooth
+        transition={{ duration: 0.6, ease: "easeOut" }} 
       >
         
-        {/* MENU BAR ATAS */}
-        <div className="bg-white/80 backdrop-blur-md rounded-full px-6 py-3 mb-6 shadow-lg flex justify-between items-center mx-2 md:mx-0">
-           <div className="flex items-center gap-2">
+        {/* MENU BAR ATAS (Profile Dihapus & Menu di Tengah) */}
+        <div className="bg-white/80 backdrop-blur-md rounded-full px-6 py-3 mb-6 shadow-lg relative flex justify-center items-center mx-2 md:mx-0">
+           
+           {/* LOGO (Posisi Absolute di Kiri) */}
+           <div className="absolute left-4 md:left-6 flex items-center gap-2">
              <div className="bg-pink-500 p-2 rounded-full text-white">
                <Heart size={20} fill="white" />
              </div>
              <span className="font-bold text-pink-600 hidden md:block">LoveApp</span>
            </div>
 
+           {/* MENU ITEMS (Otomatis di Tengah karena Container justify-center) */}
            <nav className="flex gap-4 md:gap-8 text-gray-600 font-medium text-sm md:text-base">
              <button className="text-pink-600 border-b-2 border-pink-500 pb-1 flex gap-2 items-center">
                 <Home size={18}/> Home
@@ -67,9 +68,8 @@ export default function DashboardPage() {
              </button>
            </nav>
 
-           <div className="w-8 h-8 rounded-full bg-pink-200 overflow-hidden border-2 border-pink-400">
-              <Image src="/MyLove.png" width={32} height={32} alt="Profile" className="object-cover w-full h-full" />
-           </div>
+           {/* Profile Picture DIHAPUS dari sini */}
+
         </div>
 
         {/* KOTAK PUTIH UTAMA */}
