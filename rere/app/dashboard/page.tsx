@@ -79,19 +79,19 @@ export default function DashboardPage() {
           <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-red-300 rounded-full blur-3xl opacity-50"></div>
 
           <div className="relative z-10">
-            <h2 className="text-4xl md:text-6xl font-bold text-pink-600 mb-4 font-valentine">
-              Will you be my Valentine?
+            <h2 className="text-4xl md:text-6xl font-bold text-pink-600 mb-4">
+              Kamu Manis sayanggg....
             </h2>
             <p className="text-gray-500 mb-10 text-lg">
-              Aku harap jawabannya iya, soalnya aku maksa. hehe 😜
+              Jangan pencet gakkkkk
             </p>
 
             <div className="flex flex-col md:flex-row items-center justify-center gap-6 mt-4 relative">
               <button 
-                onClick={() => alert("Yeay! I Love You! ❤️")}
+                onClick={() => alert("Yeay! I Love You Muachhhhh! ❤️")}
                 className="bg-gradient-to-r from-pink-500 to-red-400 text-white font-bold py-4 px-12 rounded-full shadow-lg hover:shadow-pink-500/50 hover:scale-105 transition-all text-xl"
               >
-                MAU DONG!
+                Iya aku manis!
               </button>
               
               <motion.button
@@ -100,7 +100,7 @@ export default function DashboardPage() {
                 onClick={moveNoButton}
                 className="bg-gray-200 text-gray-500 font-bold py-4 px-12 rounded-full hover:bg-gray-300 transition-colors text-xl"
               >
-                Gak Dulu
+                Gak Manis
               </motion.button>
             </div>
           </div>
