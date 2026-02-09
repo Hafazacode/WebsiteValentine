@@ -90,7 +90,6 @@ export default function WelcomePage() {
 
         <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.8 }}>
           <button
-            onClick={() => router.push('/')}
             className="bg-white text-pink-500 font-bold py-3 px-10 rounded-full shadow-2xl hover:bg-pink-50 transition-all transform hover:scale-110 active:scale-95"
           >
             Lanjuttt
