@@ -38,28 +38,31 @@ export default function WelcomePage() {
         );
       })}
 
-      {/* 2. FOTO PACAR DI TENAH (MENYATU TOTAL) */}
+      {/* 2. FOTO PACAR DI TENGAH (OPTIMASI OPACITY) */}
       <motion.div
         className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none p-4"
         initial={{ opacity: 0, scale: 1.1 }}
-        animate={{ opacity: 0.25, scale: 1 }} 
+        animate={{ 
+          // Turunkan ke 0.1 atau 0.15 agar di HP tidak terlalu mencolok
+          opacity: 0.15, 
+          scale: 1 
+        }} 
         transition={{ duration: 2.5, ease: "easeOut" }}
       >
         <div 
           className="relative w-full h-full max-w-[90vw] max-h-[70vh] md:max-w-[600px] md:max-h-[600px]"
           style={{
-            // Masking agar pinggiran foto tetap halus menyatu ke background
-            WebkitMaskImage: 'radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 80%)',
-            maskImage: 'radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 80%)',
+            WebkitMaskImage: 'radial-gradient(circle, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 70%)',
+            maskImage: 'radial-gradient(circle, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 70%)',
           }}
         >
           <Image 
             src="/MyLove.png" 
             alt="Ayang"
             fill
-            className="object-contain grayscale-[30%] mix-blend-multiply" 
-            // object-contain: Memastikan seluruh foto masuk ke dalam kotak tanpa terpotong
-            priority // Agar foto dimuat lebih cepat
+            // Tambahkan blur sedikit agar detail foto tidak mengganggu teks
+            className="object-contain grayscale-[50%] mix-blend-multiply blur-[2px] md:blur-0" 
+            priority
           />
         </div>
       </motion.div>
