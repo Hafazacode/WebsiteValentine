@@ -40,25 +40,26 @@ export default function WelcomePage() {
 
       {/* 2. FOTO PACAR DI TENAH (MENYATU TOTAL) */}
       <motion.div
-        className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none"
+        className="absolute inset-0 flex items-center justify-center z-0 pointer-events-none p-4"
         initial={{ opacity: 0, scale: 1.1 }}
-        animate={{ opacity: 0.2, scale: 1 }} // Opacity 0.2 agar sangat halus seperti bayangan
+        animate={{ opacity: 0.25, scale: 1 }} 
         transition={{ duration: 2.5, ease: "easeOut" }}
       >
         <div 
-          className="relative w-[80%] h-[80%] max-w-[600px] max-h-[600px]"
+          className="relative w-full h-full max-w-[90vw] max-h-[70vh] md:max-w-[600px] md:max-h-[600px]"
           style={{
-            // MAGIC SAKTI: Memudarkan pinggiran gambar secara halus
-            WebkitMaskImage: 'radial-gradient(circle, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 70%)',
-            maskImage: 'radial-gradient(circle, rgba(0,0,0,1) 20%, rgba(0,0,0,0) 70%)',
+            // Masking agar pinggiran foto tetap halus menyatu ke background
+            WebkitMaskImage: 'radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 80%)',
+            maskImage: 'radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 80%)',
           }}
         >
           <Image 
             src="/MyLove.png" 
             alt="Ayang"
             fill
-            className="object-cover grayscale-[40%] mix-blend-multiply" 
-            // mix-blend-multiply: membuat warna putih/terang di foto hilang & menyatu ke pink
+            className="object-contain grayscale-[30%] mix-blend-multiply" 
+            // object-contain: Memastikan seluruh foto masuk ke dalam kotak tanpa terpotong
+            priority // Agar foto dimuat lebih cepat
           />
         </div>
       </motion.div>
