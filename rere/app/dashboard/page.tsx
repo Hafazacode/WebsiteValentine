@@ -116,7 +116,7 @@ const DraggableNote = ({ note, onDelete, onUpdatePos, containerRef }: { note: No
 const RelationshipTimer = () => {
   const [time, setTime] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   useEffect(() => {
-    const jadianDate = new Date("2023-01-01T00:00:00"); 
+    const jadianDate = new Date("2025-12-13T11:25:00"); 
     const interval = setInterval(() => {
       const now = new Date();
       const diff = now.getTime() - jadianDate.getTime();
@@ -422,13 +422,13 @@ export default function DashboardPage() {
                                 </motion.div>
                             )}
 
-                            {/* STEP 4: TEBAK MAKANAN (REVISI POSISI) */}
+                            {/* STEP 4: TEBAK MAKANAN (ANIMASI GOYANG & KLIK GEDE) */}
                             {surpriseStep === 4 && (
                                 <motion.div 
                                     key="step4"
                                     className="flex flex-col items-center justify-center h-full w-full"
                                 >
-                                    {/* Judul: Diberi margin bawah agar tidak tertabrak */}
+                                    {/* Judul */}
                                     <motion.h3 
                                         initial={{ y: -50, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
@@ -437,10 +437,10 @@ export default function DashboardPage() {
                                         Si manis ini suka apa ya?? 🤔
                                     </motion.h3>
 
-                                    {/* WADAH ORBIT: Kotak imajiner di tengah untuk memastikan simetri */}
+                                    {/* WADAH ORBIT */}
                                     <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center">
                                         
-                                        {/* Foto Tengah: Tepat di pusat */}
+                                        {/* Foto Tengah */}
                                         <motion.div
                                             layoutId="main-photo"
                                             initial={{ scale: 1.5, opacity: 0 }}
@@ -450,13 +450,18 @@ export default function DashboardPage() {
                                             <img src="/AyangkuManis.png" alt="Foto Pacar" className="w-full h-full object-cover" />
                                         </motion.div>
 
-                                        {/* --- MAKANAN DI 4 SUDUT (POSISI ABSOLUT SIMETRIS) --- */}
+                                        {/* --- MAKANAN DI 4 SUDUT (GOYANG) --- */}
                                         
                                         {/* 1. SEBLAK (Kiri Atas) */}
                                         <motion.button
                                             initial={{ scale: 0, x: -50, y: -50 }}
-                                            animate={{ scale: 1, x: 0, y: 0 }}
-                                            whileHover={{ scale: 1.1, rotate: [-5, 5, -5, 5, 0] }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }} // Goyang
+                                            transition={{ 
+                                                default: { duration: 0.5 }, 
+                                                rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" } 
+                                            }}
+                                            whileHover={{ scale: 1.2 }} // Gede di PC
+                                            whileTap={{ scale: 1.2 }}   // Gede di HP
                                             onClick={() => handleFoodClick(false)}
                                             className="absolute -top-4 -left-4 md:-top-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
                                         >
@@ -467,8 +472,13 @@ export default function DashboardPage() {
                                         {/* 2. RUJAK (Kanan Atas) */}
                                         <motion.button
                                             initial={{ scale: 0, x: 50, y: -50 }}
-                                            animate={{ scale: 1, x: 0, y: 0 }}
-                                            whileHover={{ scale: 1.1, rotate: [-5, 5, -5, 5, 0] }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }} // Goyang
+                                            transition={{ 
+                                                default: { duration: 0.5 }, 
+                                                rotate: { repeat: Infinity, duration: 2.2, ease: "easeInOut" } 
+                                            }}
+                                            whileHover={{ scale: 1.2 }}
+                                            whileTap={{ scale: 1.2 }}
                                             onClick={() => handleFoodClick(false)}
                                             className="absolute -top-4 -right-4 md:-top-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
                                         >
@@ -479,8 +489,13 @@ export default function DashboardPage() {
                                         {/* 3. NANAS (Kiri Bawah) */}
                                         <motion.button
                                             initial={{ scale: 0, x: -50, y: 50 }}
-                                            animate={{ scale: 1, x: 0, y: 0 }}
-                                            whileHover={{ scale: 1.1, rotate: [-5, 5, -5, 5, 0] }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }} // Goyang
+                                            transition={{ 
+                                                default: { duration: 0.5 }, 
+                                                rotate: { repeat: Infinity, duration: 2.5, ease: "easeInOut" } 
+                                            }}
+                                            whileHover={{ scale: 1.2 }}
+                                            whileTap={{ scale: 1.2 }}
                                             onClick={() => handleFoodClick(false)}
                                             className="absolute -bottom-4 -left-4 md:-bottom-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
                                         >
@@ -491,8 +506,13 @@ export default function DashboardPage() {
                                         {/* 4. MATCHA (Kanan Bawah - BENAR) */}
                                         <motion.button
                                             initial={{ scale: 0, x: 50, y: 50 }}
-                                            animate={{ scale: 1, x: 0, y: 0 }}
-                                            whileHover={{ scale: 1.1, rotate: [-5, 5, -5, 5, 0] }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }} // Goyang
+                                            transition={{ 
+                                                default: { duration: 0.5 }, 
+                                                rotate: { repeat: Infinity, duration: 2.1, ease: "easeInOut" } 
+                                            }}
+                                            whileHover={{ scale: 1.2 }}
+                                            whileTap={{ scale: 1.2 }}
                                             onClick={() => handleFoodClick(true)}
                                             className="absolute -bottom-4 -right-4 md:-bottom-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg border-2 border-transparent hover:border-green-400 z-20"
                                         >
@@ -514,10 +534,10 @@ export default function DashboardPage() {
                                     <div className="bg-green-100 p-4 rounded-full mb-6">
                                         <CheckCircle size={64} className="text-green-500" />
                                     </div>
-                                    <h2 className="text-3xl font-bold text-gray-800 mb-2">Yeyyy! Sayangku akhirnya manuttt! 🎉</h2>
-                                    <p className="text-gray-500 mb-8">Kamu emang kesayangan aku yang paling manissss!</p>
+                                    <h2 className="text-3xl font-bold text-gray-800 mb-2">Yeyyy! Bener Banget! 🎉</h2>
+                                    <p className="text-gray-500 mb-8">Kamu emang kesayangan aku yang paling ngerti!</p>
                                     <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MDJ9IbxxvDUQM/giphy.gif" alt="Cute Cat" className="w-48 rounded-xl shadow-lg mb-6" />
-                                    <button onClick={() => setSurpriseStep(0)} className="text-pink-500 hover:underline text-sm flex items-center gap-1"><RotateCcw size={14}/> Ulangi</button>
+                                    <button onClick={() => setSurpriseStep(0)} className="text-pink-500 hover:underline text-sm flex items-center gap-1"><RotateCcw size={14}/> Main lagi</button>
                                 </motion.div>
                             )}
 
