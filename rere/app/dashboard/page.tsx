@@ -1,19 +1,18 @@
 "use client";
 
 import { useState, useEffect, memo, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-// Tambahkan CalendarCheck untuk icon menu baru
-import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight } from "lucide-react"; 
+import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
+import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight, Hand, CircleDot } from "lucide-react"; 
 import { supabase } from "@/lib/supabaseClient";
 import FlappyBirdGame from "@/components/FlappyBirdGame"; 
 import TicTacToeGame from "@/components/TicTacToeGame";
-// Pastikan kamu punya font valentine di globals.css, kalau belum pakai font-serif dulu
+// --- IMPORT GAME BARU ---
+import AyangIoGame from "@/components/AyangIoGame";
 
 // --- KONFIGURASI FOTO BULANAN ---
-// Ganti nama file sesuai foto di folder public kamu
 const MONTH_IMAGES = [
-  "/Januari.jpeg",   // Index 0
-  "/Februari.jpeg",  // Index 1
+  "/Januari.jpeg",   
+  "/Februari.jpeg",  
   "/Maret.jpeg",
   "/April.jpeg",
   "/Mei.jpeg",
@@ -23,7 +22,7 @@ const MONTH_IMAGES = [
   "/September.jpeg",
   "/Oktober.jpeg",
   "/November.jpeg",
-  "/Desember.jpeg"   // Index 11
+  "/Desember.jpeg"   
 ];
 
 // --- Tipe Data ---
@@ -176,6 +175,7 @@ export default function DashboardPage() {
   
   const [surpriseStep, setSurpriseStep] = useState(0);
   const [wrongGuessAlert, setWrongGuessAlert] = useState(false);
+  const [pinchCount, setPinchCount] = useState(0); 
 
   // --- DATABASE STATES ---
   const [events, setEvents] = useState<EventData[]>([]);
@@ -189,6 +189,15 @@ export default function DashboardPage() {
   
   const [selectedCountdownId, setSelectedCountdownId] = useState<string>("");
   const [countdownTime, setCountdownTime] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  // --- VARIABLES FOR RUBBER CHEEK EFFECT ---
+  // Motion values untuk melacak posisi drag
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  // Transformasi: Kalau ditarik X nya, scale X membesar (melar)
+  const scaleX = useTransform(x, [-150, 150], [0.6, 1.6]); 
+  // Rotasi dikit biar makin lucu
+  const rotate = useTransform(y, [-150, 150], [-10, 10]);
 
   // --- STATE UNTUK KALENDER AYANG (Baru) ---
   const [currentCalDate, setCurrentCalDate] = useState(new Date());
@@ -206,6 +215,15 @@ export default function DashboardPage() {
         setWrongGuessAlert(true);
         setTimeout(() => setWrongGuessAlert(false), 2000);
     }
+  };
+
+  // --- EFEK GETARAN CUBIT ---
+  const handlePinchStart = () => {
+    // Efek Getar di HP
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(50); // Getar pendek 50ms
+    }
+    setPinchCount(prev => prev + 1);
   };
 
   const fetchEvents = async () => {
@@ -267,17 +285,14 @@ export default function DashboardPage() {
 
   const moveNoButton = () => { setNoBtnPos({ x: Math.random()*150-75, y: Math.random()*150-75 }); };
 
-  // --- LOGIC KALENDER AYANG (CUSTOM) ---
+  // --- LOGIC KALENDER AYANG ---
   const generateCalendarDays = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1).getDay(); // 0 = Sunday
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
     const days = [];
-    // Padding hari kosong
     for (let i = 0; i < firstDay; i++) days.push(null);
-    // Hari tanggal
     for (let i = 1; i <= daysInMonth; i++) days.push(i);
     return days;
   };
@@ -293,7 +308,7 @@ export default function DashboardPage() {
                { id: 'relationship', icon: Clock, label: 'Timer' },
                { id: 'events', icon: List, label: 'Events' },
                { id: 'countdown', icon: Hourglass, label: 'Countdown' },
-               { id: 'realCalendar', icon: CalendarCheck, label: 'Your Calender' } // Menu Baru
+               { id: 'realCalendar', icon: CalendarCheck, label: 'Kalender Kita' }
              ].map(item => (
                <button key={item.id} onClick={() => setCalendarTab(item.id)} 
                  className={`p-3 rounded-xl text-left flex items-center gap-3 transition-all flex-1 md:flex-none justify-center md:justify-start whitespace-nowrap
@@ -304,16 +319,12 @@ export default function DashboardPage() {
         </div>
         
         <div className="flex-1 p-4 md:p-6 flex flex-col items-center justify-start md:justify-center overflow-y-auto w-full relative">
-            
-            {/* 1. RELATIONSHIP TIMER */}
             {calendarTab === 'relationship' && (
                 <div className="w-full text-center mt-4 md:mt-0">
                     <h3 className="text-lg font-bold text-pink-500 mb-4">Kita sudah bersama:</h3>
                     <RelationshipTimer />
                 </div>
             )}
-
-            {/* 2. EVENTS LIST */}
             {calendarTab === 'events' && (
                 <div className="w-full max-w-md flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
@@ -339,8 +350,6 @@ export default function DashboardPage() {
                     </div>
                 </div>
             )}
-
-            {/* 3. COUNTDOWN */}
             {calendarTab === 'countdown' && (
                 <div className="w-full max-w-sm flex flex-col items-center mt-4 md:mt-0">
                     <select className="w-full p-3 mb-6 border rounded-xl bg-white text-sm" onChange={e=>setSelectedCountdownId(e.target.value)} value={selectedCountdownId}>
@@ -357,31 +366,21 @@ export default function DashboardPage() {
                     )}
                 </div>
             )}
-
-            {/* 4. REAL CALENDAR (CUSTOM BACKGROUND & FONT) */}
             {calendarTab === 'realCalendar' && (
                 <div className="w-full h-full max-w-sm mx-auto flex flex-col relative rounded-2xl overflow-hidden shadow-2xl bg-pink-100">
-                    
-                    {/* --- BACKGROUND LAYER --- */}
                     <div className="absolute inset-0 z-0">
-                        {/* Gambar Ayang sesuai Bulan */}
                         <div 
                             className="absolute inset-0 transition-all duration-500"
                             style={{
-                                backgroundImage: `url(${MONTH_IMAGES[currentCalDate.getMonth()] || '/AyangkuManis.png'})`, // Fallback kalau array kosong
+                                backgroundImage: `url(${MONTH_IMAGES[currentCalDate.getMonth()] || '/AyangkuManis.png'})`, 
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center',
                             }}
                         />
-                        {/* Overlay Pink (Blending) */}
                         <div className="absolute inset-0 bg-pink-500/40 mix-blend-hard-light backdrop-blur-[2px]"></div>
                         <div className="absolute inset-0 bg-gradient-to-t from-pink-900/60 to-transparent"></div>
                     </div>
-
-                    {/* --- CONTENT LAYER --- */}
                     <div className="relative z-10 flex flex-col h-full p-4 text-white">
-                        
-                        {/* Header Bulan */}
                         <div className="flex justify-between items-center mb-6">
                             <button onClick={() => changeMonth(-1)} className="p-2 bg-white/20 rounded-full hover:bg-white/40 backdrop-blur-sm"><ChevronLeft size={20}/></button>
                             <div className="text-center">
@@ -392,8 +391,6 @@ export default function DashboardPage() {
                             </div>
                             <button onClick={() => changeMonth(1)} className="p-2 bg-white/20 rounded-full hover:bg-white/40 backdrop-blur-sm"><ChevronRight size={20}/></button>
                         </div>
-
-                        {/* Grid Kalender */}
                         <div className="grid grid-cols-7 gap-1 text-center mb-2">
                             {['M', 'S', 'S', 'R', 'K', 'J', 'S'].map((d, i) => (
                                 <span key={i} className="text-xs font-bold text-pink-100">{d}</span>
@@ -423,57 +420,49 @@ export default function DashboardPage() {
     </div>
   );
 
-  // --- GAME RENDER LOGIC ---
   const renderGameContent = () => {
-    // 1. Jika sedang main flappy bird
     if (selectedGame === "flappy") {
         return <FlappyBirdGame onBack={() => setSelectedGame(null)} />;
     }
-
-    // 2. Jika sedang main Tic Tac Toe (BARU)
     if (selectedGame === "tictactoe") {
         return <TicTacToeGame onBack={() => setSelectedGame(null)} />;
     }
+    // --- LOGIKA RENDER GAME BARU (AYANG.IO) ---
+    if (selectedGame === "ayangio") {
+        return <AyangIoGame onBack={() => setSelectedGame(null)} />;
+    }
 
-    // 3. Jika di Menu Game
     return (
         <div className="h-full flex flex-col items-center justify-center animate-in fade-in zoom-in p-6">
             <h2 className="text-2xl font-bold text-pink-600 mb-6 flex items-center gap-2">
                 <Gamepad2/> Pilih Game
             </h2>
-            
             <div className="grid grid-cols-2 gap-4 w-full max-w-md">
-                {/* Game 1: Flappy Bird */}
-                <button 
-                    onClick={() => setSelectedGame("flappy")}
-                    className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group"
-                >
-                    <div className="bg-cyan-100 p-4 rounded-full group-hover:bg-cyan-200 transition">
-                        <Bird size={32} className="text-cyan-600" />
-                    </div>
+                {/* Game 1: Flappy */}
+                <button onClick={() => setSelectedGame("flappy")} className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group">
+                    <div className="bg-cyan-100 p-4 rounded-full group-hover:bg-cyan-200 transition"><Bird size={32} className="text-cyan-600" /></div>
                     <span className="font-bold text-gray-700 text-sm">Flappy Rere</span>
                 </button>
-
-                {/* Game 2: Tic Tac Toe (BARU) */}
-                <button 
-                    onClick={() => setSelectedGame("tictactoe")}
-                    className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group"
-                >
+                
+                {/* Game 2: TicTacToe */}
+                <button onClick={() => setSelectedGame("tictactoe")} className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group">
                     <div className="bg-purple-100 p-4 rounded-full group-hover:bg-purple-200 transition">
-                        {/* Import Grid3X3 dari lucide-react dulu ya */}
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
                     </div>
                     <span className="font-bold text-gray-700 text-sm">Tic-Tac-Jidat</span>
                 </button>
 
-                {/* Game 3: Coming Soon */}
-                <button 
-                    disabled 
-                    className="bg-gray-50 p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 opacity-60 cursor-not-allowed col-span-2"
-                >
-                    <div className="bg-gray-200 p-4 rounded-full">
-                        <Plus size={32} className="text-gray-400" />
+                {/* Game 3: Ayang.io (BARU) */}
+                <button onClick={() => setSelectedGame("ayangio")} className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group">
+                    <div className="bg-rose-100 p-4 rounded-full group-hover:bg-rose-200 transition">
+                        <CircleDot size={32} className="text-rose-600" />
                     </div>
+                    <span className="font-bold text-gray-700 text-sm">Ayang.io</span>
+                </button>
+
+                {/* Tombol Coming Soon */}
+                <button disabled className="bg-gray-50 p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 opacity-60 cursor-not-allowed">
+                    <div className="bg-gray-200 p-4 rounded-full"><Plus size={32} className="text-gray-400" /></div>
                     <span className="font-bold text-gray-400 text-sm">Game Lainnya...</span>
                 </button>
             </div>
@@ -483,7 +472,6 @@ export default function DashboardPage() {
 
   return (
     <main className="fixed inset-0 bg-gradient-to-br from-pink-400 to-red-300 font-sans text-slate-800 overflow-hidden">
-      {/* Background Hearts hanya muncul di Home untuk performa */}
       {activeTab === 'home' && <BackgroundHearts />}
       
       <AnimatePresence>
@@ -603,7 +591,6 @@ export default function DashboardPage() {
 
                                     <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center">
                                         <motion.div
-                                            layoutId="main-photo"
                                             initial={{ scale: 1.5, opacity: 0 }}
                                             animate={{ scale: 1, opacity: 1 }}
                                             className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl overflow-hidden z-10"
@@ -663,12 +650,13 @@ export default function DashboardPage() {
                                 </motion.div>
                             )}
 
-                            {/* STEP 5: SUCCESS */}
+                            {/* STEP 5: SUCCESS & LANJUT BUTTON */}
                             {surpriseStep === 5 && (
                                 <motion.div 
                                     key="step5"
                                     initial={{ scale: 0.8, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ opacity: 0, scale: 0.8 }}
                                     className="flex flex-col items-center justify-center h-full text-center p-6"
                                 >
                                     <div className="bg-green-100 p-4 rounded-full mb-6">
@@ -677,7 +665,84 @@ export default function DashboardPage() {
                                     <h2 className="text-3xl font-bold text-gray-800 mb-2">Yeyyy! Akhirnya sayangkuu manuttttt! 🎉</h2>
                                     <p className="text-gray-500 mb-8">Kamu emang kesayangan aku yang paling manisss!</p>
                                     <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MDJ9IbxxvDUQM/giphy.gif" alt="Cute Cat" className="w-48 rounded-xl shadow-lg mb-6" />
-                                    <button onClick={() => setSurpriseStep(0)} className="text-pink-500 hover:underline text-sm flex items-center gap-1"><RotateCcw size={14}/> Main lagi</button>
+                                    
+                                    {/* BUTTON LANJUT KE STEP 6 */}
+                                    <motion.button 
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => setSurpriseStep(6)} 
+                                        className="bg-pink-500 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2 text-lg"
+                                    >
+                                        Lanjut sayang ❤️ <ArrowRight size={20}/>
+                                    </motion.button>
+                                </motion.div>
+                            )}
+
+                            {/* STEP 6: CUBIT PIPI (NEW FEATURE) */}
+                            {surpriseStep === 6 && (
+                                <motion.div 
+                                    key="step6"
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    className="flex flex-col items-center justify-center h-full text-center p-6"
+                                >
+                                    <h2 className="text-2xl md:text-3xl font-bold text-pink-600 mb-2 font-valentine">
+                                        Cubit Pipi Karet! 🤏
+                                    </h2>
+                                    <p className="text-gray-500 mb-8 text-sm max-w-xs mx-auto">
+                                        Tarik bagian <b>Pipi Kanan</b> buat nyubit! (Yang kiri aku paku biar gak lari 😝)
+                                    </p>
+
+                                    {/* AREA CUBIT (ELASTIC DRAG) */}
+                                    <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center mb-8">
+                                        <motion.div
+                                            style={{ 
+                                                x, 
+                                                y, 
+                                                scaleX, // Ini yang bikin efek MELAR (Stretch)
+                                                rotate,
+                                                transformOrigin: "20% 50%" // PAKU DI KIRI (Telinga Kiri)
+                                            }}
+                                            drag
+                                            dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }} 
+                                            dragElastic={0.15} // Makin kecil makin "berat" karetnya
+                                            whileTap={{ cursor: "grabbing" }}
+                                            onPointerDown={handlePinchStart}
+                                            className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-white shadow-2xl overflow-hidden cursor-grab active:cursor-grabbing relative z-10 bg-pink-200 touch-none"
+                                        >
+                                            <img 
+                                                src="/AyangkuManis.png" 
+                                                alt="Foto Cubit" 
+                                                className="w-full h-full object-cover pointer-events-none" 
+                                            />
+                                            
+                                            {/* Text Bubble saat dicubit */}
+                                            <motion.div 
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center opacity-0 active:opacity-100 transition-opacity"
+                                            >
+                                                <span className="bg-white text-pink-600 px-3 py-1 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
+                                                    Melarrr! 🤣
+                                                </span>
+                                            </motion.div>
+                                        </motion.div>
+                                        
+                                        {/* Icon Tangan Petunjuk (Di Pipi Kanan) */}
+                                        <motion.div 
+                                            animate={{ x: [5, 20, 5], opacity: [0.5, 1, 0.5] }}
+                                            transition={{ repeat: Infinity, duration: 1.5 }}
+                                            className="absolute top-1/2 right-0 md:right-4 transform -translate-y-1/2 text-pink-400 pointer-events-none"
+                                        >
+                                            <Hand size={32} className="rotate-90"/>
+                                        </motion.div>
+                                    </div>
+                                    
+                                    <div className="bg-white/50 px-4 py-2 rounded-lg border border-pink-100 mb-6">
+                                        <span className="text-pink-500 font-bold">{pinchCount}</span> <span className="text-gray-500 text-sm">kali ditarik 🤕</span>
+                                    </div>
+
+                                    <button onClick={() => setSurpriseStep(0)} className="text-gray-400 hover:text-pink-500 hover:underline text-sm flex items-center gap-1 transition-colors">
+                                        <RotateCcw size={14}/> Udahan ah, kasian
+                                    </button>
                                 </motion.div>
                             )}
 
