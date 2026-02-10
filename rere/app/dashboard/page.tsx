@@ -29,26 +29,44 @@ const NOTE_COLORS = [
   { name: "green", bg: "bg-green-200" },
 ];
 
-// --- KOMPONEN TYPEWRITER ---
+// --- KOMPONEN TYPEWRITER (SUDAH DIPERBAIKI) ---
 const Typewriter = ({ text, onComplete, speed = 100, delayAfter = 1000, className = "" }: { text: string, onComplete?: () => void, speed?: number, delayAfter?: number, className?: string }) => {
   const [displayedText, setDisplayedText] = useState("");
+  
+  // FIX: Gunakan useRef untuk menyimpan fungsi onComplete agar tidak memicu re-render loop
+  const onCompleteRef = useRef(onComplete);
+
+  // Selalu update ref ke fungsi terbaru tanpa merestart animasi
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   useEffect(() => {
+    setDisplayedText(""); // Reset text hanya jika prop 'text' berubah
     let index = 0;
+    
     const interval = setInterval(() => {
-      setDisplayedText((prev) => text.slice(0, index + 1)); 
+      // Menggunakan functional update state agar aman
+      setDisplayedText((prev) => {
+        if (index >= text.length) return prev;
+        return text.slice(0, index + 1);
+      });
+      
       index++;
       
       if (index > text.length) {
         clearInterval(interval);
-        if (onComplete) {
-          setTimeout(onComplete, delayAfter);
+        if (onCompleteRef.current) {
+          setTimeout(() => {
+             if (onCompleteRef.current) onCompleteRef.current();
+          }, delayAfter);
         }
       }
     }, speed);
 
     return () => clearInterval(interval);
-  }, [text, speed, delayAfter, onComplete]);
+    // HAPUS onComplete dari dependency array di bawah ini agar tidak loop
+  }, [text, speed, delayAfter]); 
 
   return (
     <span className={className}>
