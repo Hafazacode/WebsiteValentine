@@ -2,8 +2,9 @@
 
 import { useState, useEffect, memo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon } from "lucide-react"; 
+import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird } from "lucide-react"; 
 import { supabase } from "@/lib/supabaseClient";
+import FlappyBirdGame from "@/components/FlappyBirdGame"; // Pastikan path import sesuai
 
 // --- Tipe Data ---
 type EventData = {
@@ -29,70 +30,63 @@ const NOTE_COLORS = [
   { name: "green", bg: "bg-green-200" },
 ];
 
-// --- KOMPONEN TYPEWRITER (SUDAH DIPERBAIKI) ---
+// --- KOMPONEN TYPEWRITER ---
 const Typewriter = ({ text, onComplete, speed = 100, delayAfter = 1000, className = "" }: { text: string, onComplete?: () => void, speed?: number, delayAfter?: number, className?: string }) => {
   const [displayedText, setDisplayedText] = useState("");
-  
-  // FIX: Gunakan useRef untuk menyimpan fungsi onComplete agar tidak memicu re-render loop
   const onCompleteRef = useRef(onComplete);
 
-  // Selalu update ref ke fungsi terbaru tanpa merestart animasi
-  useEffect(() => {
-    onCompleteRef.current = onComplete;
-  }, [onComplete]);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
 
   useEffect(() => {
-    setDisplayedText(""); // Reset text hanya jika prop 'text' berubah
+    setDisplayedText(""); 
     let index = 0;
-    
     const interval = setInterval(() => {
-      // Menggunakan functional update state agar aman
       setDisplayedText((prev) => {
         if (index >= text.length) return prev;
         return text.slice(0, index + 1);
       });
-      
       index++;
-      
       if (index > text.length) {
         clearInterval(interval);
-        if (onCompleteRef.current) {
-          setTimeout(() => {
-             if (onCompleteRef.current) onCompleteRef.current();
-          }, delayAfter);
-        }
+        if (onCompleteRef.current) setTimeout(() => { if (onCompleteRef.current) onCompleteRef.current(); }, delayAfter);
       }
     }, speed);
-
     return () => clearInterval(interval);
-    // HAPUS onComplete dari dependency array di bawah ini agar tidak loop
   }, [text, speed, delayAfter]); 
 
-  return (
-    <span className={className}>
-      {displayedText}
-      <span className="animate-pulse ml-1">|</span>
-    </span>
-  );
+  return <span className={className}>{displayedText}<span className="animate-pulse ml-1">|</span></span>;
 };
 
-// --- KOMPONEN BACKGROUND HEARTS ---
+// --- OPTIMIZED BACKGROUND HEARTS ---
+// Mengurangi jumlah partikel dan menggunakan properti sederhana agar enteng di HP
 const BackgroundHearts = memo(() => {
-  const [hearts, setHearts] = useState<number[]>([]);
-  useEffect(() => { setHearts(Array.from({ length: 12 })); }, []);
+  // Hanya render di client side untuk menghindari mismatch hydration
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) return null;
+
   return (
-    <>
-      {hearts.map((_, index) => (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {Array.from({ length: 8 }).map((_, index) => (
          <motion.div
             key={index}
-            className="absolute left-0 text-white/30 pointer-events-none z-0"
-            style={{ fontSize: `${Math.random() * 20 + 20}px`, willChange: "transform, opacity" }}
-            initial={{ opacity: 0, y: "110vh", x: `${Math.floor(Math.random() * 100)}vw` }}
-            animate={{ opacity: [0, 0.6, 0.6, 0], y: "-10vh" }}
-            transition={{ duration: Math.random() * 6 + 10, repeat: Infinity, delay: Math.random() * 5, ease: "linear" }}
+            className="absolute text-white/20"
+            style={{ 
+                left: `${Math.random() * 100}vw`,
+                fontSize: `${Math.random() * 20 + 10}px` 
+            }}
+            initial={{ y: "110vh", opacity: 0 }}
+            animate={{ y: "-10vh", opacity: [0, 0.5, 0] }}
+            transition={{ 
+                duration: Math.random() * 10 + 15, // Lebih lambat biar ga berat
+                repeat: Infinity, 
+                delay: Math.random() * 10,
+                ease: "linear" 
+            }}
          >❤️</motion.div>
       ))}
-    </>
+    </div>
   );
 });
 BackgroundHearts.displayName = "BackgroundHearts";
@@ -106,26 +100,22 @@ const DraggableNote = ({ note, onDelete, onUpdatePos, containerRef }: { note: No
             dragConstraints={containerRef} 
             initial={{ x: note.x, y: note.y, scale: 0 }}
             animate={{ x: note.x, y: note.y, scale: 1 }}
-            whileDrag={{ scale: 1.05, zIndex: 100, rotate: 0, cursor: 'grabbing' }}
+            whileDrag={{ scale: 1.05, zIndex: 50, cursor: 'grabbing' }}
             onDragEnd={(event, info) => {
                 const newX = note.x + info.offset.x;
                 const newY = note.y + info.offset.y;
                 onUpdatePos(note.id, newX, newY);
             }}
-            className={`absolute w-32 md:w-52 min-h-[140px] md:min-h-[180px] p-3 md:p-5 shadow-lg rounded-sm ${note.color} transform rotate-1 flex flex-col justify-between touch-none`}
-            style={{ 
-                boxShadow: "5px 5px 15px rgba(0,0,0,0.1)",
-                left: 0, top: 0 
-            }}
+            className={`absolute w-36 md:w-52 min-h-[140px] md:min-h-[180px] p-4 shadow-md rounded-sm ${note.color} flex flex-col justify-between touch-none`}
+            style={{ left: 0, top: 0 }}
         >
             <div>
-                <h4 className="font-bold text-gray-800 text-xs md:text-lg mb-1 leading-tight line-clamp-2" style={{ fontFamily: 'cursive' }}>{note.title}</h4>
-                <p className="text-gray-700 text-[10px] md:text-sm whitespace-pre-wrap leading-snug" style={{ fontFamily: 'cursive' }}>{note.content}</p>
+                <h4 className="font-bold text-gray-800 text-sm md:text-lg mb-1 leading-tight line-clamp-2" style={{ fontFamily: 'cursive' }}>{note.title}</h4>
+                <p className="text-gray-700 text-xs md:text-sm whitespace-pre-wrap leading-snug" style={{ fontFamily: 'cursive' }}>{note.content}</p>
             </div>
-            <button onPointerDown={(e) => e.stopPropagation()} onClick={() => onDelete(note.id)} className="self-end mt-1 text-gray-500 hover:text-red-600 p-1">
-                <Trash2 size={14} className="md:w-4 md:h-4" />
+            <button onPointerDown={(e) => e.stopPropagation()} onClick={() => onDelete(note.id)} className="self-end mt-1 text-gray-400 hover:text-red-600 p-2">
+                <Trash2 size={16} />
             </button>
-            <div className="absolute -top-2 md:-top-3 left-1/2 -translate-x-1/2 w-12 md:w-20 h-4 md:h-8 bg-white/40 rotate-1 backdrop-blur-sm"></div>
         </motion.div>
     );
 };
@@ -149,11 +139,11 @@ const RelationshipTimer = () => {
   }, []);
 
   return (
-    <div className="grid grid-cols-2 gap-3 w-full max-w-sm mx-auto">
-        <div className="bg-pink-100 p-3 rounded-xl border border-pink-300 shadow-sm"><p className="text-2xl md:text-3xl font-bold text-pink-600">{time.days}</p><p className="text-[10px] md:text-xs text-gray-500 uppercase font-bold">Hari</p></div>
-        <div className="bg-pink-50 p-3 rounded-xl border border-pink-200 shadow-sm"><p className="text-2xl md:text-3xl font-bold text-pink-500">{time.hours}</p><p className="text-[10px] md:text-xs text-gray-500 uppercase font-bold">Jam</p></div>
-        <div className="bg-pink-50 p-3 rounded-xl border border-pink-200 shadow-sm"><p className="text-2xl md:text-3xl font-bold text-pink-500">{time.minutes}</p><p className="text-[10px] md:text-xs text-gray-500 uppercase font-bold">Menit</p></div>
-        <div className="bg-white p-3 rounded-xl border border-pink-200 shadow-sm relative overflow-hidden"><p className="text-2xl md:text-3xl font-bold text-red-500">{time.seconds}</p><p className="text-[10px] md:text-xs text-gray-500 uppercase font-bold">Detik</p></div>
+    <div className="grid grid-cols-4 gap-2 w-full max-w-sm mx-auto">
+        <div className="bg-white/80 backdrop-blur p-2 rounded-lg text-center"><p className="text-xl font-bold text-pink-600">{time.days}</p><p className="text-[10px] text-gray-500 font-bold">HARI</p></div>
+        <div className="bg-white/80 backdrop-blur p-2 rounded-lg text-center"><p className="text-xl font-bold text-pink-500">{time.hours}</p><p className="text-[10px] text-gray-500 font-bold">JAM</p></div>
+        <div className="bg-white/80 backdrop-blur p-2 rounded-lg text-center"><p className="text-xl font-bold text-pink-500">{time.minutes}</p><p className="text-[10px] text-gray-500 font-bold">MNT</p></div>
+        <div className="bg-white/80 backdrop-blur p-2 rounded-lg text-center"><p className="text-xl font-bold text-red-500">{time.seconds}</p><p className="text-[10px] text-gray-500 font-bold">DTK</p></div>
     </div>
   );
 };
@@ -163,41 +153,40 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("home");
   const [calendarTab, setCalendarTab] = useState("relationship");
   const [noBtnPos, setNoBtnPos] = useState({ x: 0, y: 0 });
+  const [selectedGame, setSelectedGame] = useState<string | null>(null); // State untuk Menu Game
   const constraintsRef = useRef(null);
   
-  // STATE ANIMASI
-  // 0: Awal -> 1: Ngeledek -> 2: Muji -> 3: Foto Bukti -> 4: Tebak Makanan -> 5: Sukses
   const [surpriseStep, setSurpriseStep] = useState(0);
-  
-  // State untuk Notifikasi Salah Pilih
   const [wrongGuessAlert, setWrongGuessAlert] = useState(false);
 
   // --- DATABASE STATES ---
   const [events, setEvents] = useState<EventData[]>([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(false);
   const [newEvent, setNewEvent] = useState({ title: "", date: "", description: "" });
   
   const [notes, setNotes] = useState<NoteData[]>([]);
-  const [loadingNotes, setLoadingNotes] = useState(true);
+  const [loadingNotes, setLoadingNotes] = useState(false);
   const [newNote, setNewNote] = useState({ title: "", content: "", color: NOTE_COLORS[0].bg });
   const [showNoteForm, setShowNoteForm] = useState(false);
   
   const [selectedCountdownId, setSelectedCountdownId] = useState<string>("");
   const [countdownTime, setCountdownTime] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
-  useEffect(() => { fetchEvents(); fetchNotes(); }, []);
+  // FETCH DATA HANYA SAAT TAB DIBUKA (Optimasi)
+  useEffect(() => { 
+      if (activeTab === 'calendar' && events.length === 0) fetchEvents();
+      if (activeTab === 'notes' && notes.length === 0) fetchNotes();
+  }, [activeTab]);
 
-  // --- LOGIC TEBAK-TEBAKAN ---
   const handleFoodClick = (isCorrect: boolean) => {
     if (isCorrect) {
-        setSurpriseStep(5); // Masuk step sukses
+        setSurpriseStep(5);
     } else {
         setWrongGuessAlert(true);
-        setTimeout(() => setWrongGuessAlert(false), 2000); // Hilang setelah 2 detik
+        setTimeout(() => setWrongGuessAlert(false), 2000);
     }
   };
 
-  // --- CRUD HELPERS (Disederhanakan untuk brevity) ---
   const fetchEvents = async () => {
     setLoadingEvents(true);
     const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
@@ -236,7 +225,6 @@ export default function DashboardPage() {
     await supabase.from('notes').update({ x, y }).eq('id', id);
   };
 
-  // --- COUNTDOWN LOGIC ---
   useEffect(() => {
     if (!selectedCountdownId) return;
     const targetEvent = events.find(e => e.id.toString() === selectedCountdownId);
@@ -258,75 +246,67 @@ export default function DashboardPage() {
 
   const moveNoButton = () => { setNoBtnPos({ x: Math.random()*150-75, y: Math.random()*150-75 }); };
 
-  // --- RENDER SECTION: CALENDAR ---
   const renderCalendar = () => (
-    <div className="w-full h-full flex flex-col md:flex-row overflow-hidden">
+    <div className="w-full h-full flex flex-col md:flex-row overflow-hidden animate-in fade-in">
         <div className="w-full md:w-1/3 bg-pink-50 md:border-r border-pink-100 p-2 flex flex-row md:flex-col gap-2 overflow-x-auto shrink-0 no-scrollbar">
              {[
-               { id: 'relationship', icon: Clock, label: 'Timer', sub: 'Waktu Bersama' },
-               { id: 'events', icon: List, label: 'Events', sub: 'Acara & Tambah' },
-               { id: 'countdown', icon: Hourglass, label: 'Countdown', sub: 'Hitung Mundur' }
+               { id: 'relationship', icon: Clock, label: 'Timer' },
+               { id: 'events', icon: List, label: 'Events' },
+               { id: 'countdown', icon: Hourglass, label: 'Countdown' }
              ].map(item => (
                <button key={item.id} onClick={() => setCalendarTab(item.id)} 
-                 className={`p-3 rounded-xl text-left flex items-center gap-3 transition-all min-w-[140px] md:min-w-0 flex-1 md:flex-none
+                 className={`p-3 rounded-xl text-left flex items-center gap-3 transition-all flex-1 md:flex-none justify-center md:justify-start
                  ${calendarTab===item.id ? 'bg-white text-pink-600 shadow-sm ring-1 ring-pink-200' : 'text-gray-500 hover:bg-white/50'}`}>
-                 <div className={`p-2 rounded-full ${calendarTab===item.id ? 'bg-pink-500 text-white' : 'bg-gray-200'}`}><item.icon size={18}/></div>
-                 <div><p className="font-bold text-sm whitespace-nowrap">{item.label}</p><p className="text-[10px] opacity-70 hidden md:block">{item.sub}</p></div>
+                 <item.icon size={18}/> <span className="text-xs font-bold">{item.label}</span>
                </button>
              ))}
         </div>
         
         <div className="flex-1 p-4 md:p-6 flex flex-col items-center justify-start md:justify-center overflow-y-auto w-full">
             {calendarTab === 'relationship' && (
-                <div className="w-full animate-in fade-in zoom-in text-center mt-4 md:mt-0">
+                <div className="w-full text-center mt-4 md:mt-0">
                     <h3 className="text-lg font-bold text-pink-500 mb-4">Kita sudah bersama:</h3>
                     <RelationshipTimer />
-                    <p className="mt-8 text-sm text-gray-400 italic">"Setiap detiknya berharga..."</p>
                 </div>
             )}
             {calendarTab === 'events' && (
-                <div className="w-full max-w-md flex flex-col h-full animate-in fade-in zoom-in">
+                <div className="w-full max-w-md flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
-                        {loadingEvents ? <p className="text-gray-400 text-center">Loading...</p> : events.map(ev => (
+                        {loadingEvents ? <p className="text-gray-400 text-center text-xs">Loading...</p> : events.map(ev => (
                             <div key={ev.id} className="flex justify-between items-center bg-white p-3 rounded-xl border-l-4 border-pink-500 shadow-sm">
                                 <div className="flex items-center gap-3">
-                                  <div className="text-center min-w-[40px]">
+                                  <div className="text-center min-w-[30px]">
                                     <span className="block text-lg font-bold text-gray-800 leading-none">{new Date(ev.date).getDate()}</span>
                                     <span className="block text-[10px] text-pink-500 font-bold uppercase">{new Date(ev.date).toLocaleString('default', { month: 'short' })}</span>
                                   </div>
-                                  <div><p className="font-bold text-sm text-gray-700 line-clamp-1">{ev.title}</p><p className="text-xs text-gray-400 line-clamp-1">{ev.description || ev.date}</p></div>
+                                  <div><p className="font-bold text-sm text-gray-700 line-clamp-1">{ev.title}</p></div>
                                 </div>
                                 <button onClick={() => handleDeleteEvent(ev.id)} className="p-2 text-gray-300 hover:text-red-500"><Trash2 size={16}/></button>
                             </div>
                         ))}
-                        {events.length === 0 && !loadingEvents && <p className="text-center text-sm text-gray-400 py-4">Belum ada acara nih.</p>}
                     </div>
-                    <div className="bg-pink-50 p-4 rounded-xl border border-pink-200 shrink-0">
-                        <p className="text-xs font-bold text-pink-500 mb-2 flex items-center gap-1"><Plus size={14}/> Tambah Acara</p>
+                    <div className="bg-pink-50 p-3 rounded-xl border border-pink-200 shrink-0">
                         <div className="flex gap-2 mb-2">
-                           <input className="flex-1 p-2 rounded-lg text-sm border focus:outline-pink-500" placeholder="Judul" value={newEvent.title} onChange={e=>setNewEvent({...newEvent, title: e.target.value})}/>
-                           <input type="date" className="w-32 p-2 rounded-lg text-sm border focus:outline-pink-500" value={newEvent.date} onChange={e=>setNewEvent({...newEvent, date: e.target.value})}/>
+                           <input className="flex-1 p-2 rounded-lg text-sm border focus:outline-pink-500" placeholder="Acara..." value={newEvent.title} onChange={e=>setNewEvent({...newEvent, title: e.target.value})}/>
+                           <input type="date" className="w-28 p-2 rounded-lg text-sm border focus:outline-pink-500" value={newEvent.date} onChange={e=>setNewEvent({...newEvent, date: e.target.value})}/>
                         </div>
-                        <button onClick={handleAddEvent} className="w-full bg-pink-500 text-white py-2 rounded-lg text-sm font-bold shadow-md hover:bg-pink-600 active:scale-95 transition">Simpan</button>
+                        <button onClick={handleAddEvent} className="w-full bg-pink-500 text-white py-2 rounded-lg text-sm font-bold shadow-md">Simpan</button>
                     </div>
                 </div>
             )}
             {calendarTab === 'countdown' && (
-                <div className="w-full max-w-sm flex flex-col items-center animate-in fade-in zoom-in mt-4 md:mt-0">
-                    <h3 className="text-lg font-bold text-pink-500 mb-4">Hitung Mundur ⏳</h3>
+                <div className="w-full max-w-sm flex flex-col items-center mt-4 md:mt-0">
                     <select className="w-full p-3 mb-6 border rounded-xl bg-white text-sm" onChange={e=>setSelectedCountdownId(e.target.value)} value={selectedCountdownId}>
                         <option value="">-- Pilih Acara --</option>
                         {events.filter(e=>new Date(e.date)>new Date()).map(e=><option key={e.id} value={e.id}>{e.title}</option>)}
                     </select>
-                    {selectedCountdownId ? (
+                    {selectedCountdownId && (
                          <div className="grid grid-cols-4 gap-2 text-center w-full">
-                            <div className="bg-orange-100 p-2 rounded-lg"><span className="text-xl font-bold block text-orange-700">{countdownTime.days}</span><span className="text-[10px] text-orange-600">Hari</span></div>
-                            <div className="bg-orange-50 p-2 rounded-lg"><span className="text-xl font-bold block text-orange-600">{countdownTime.hours}</span><span className="text-[10px] text-orange-500">Jam</span></div>
-                            <div className="bg-orange-50 p-2 rounded-lg"><span className="text-xl font-bold block text-orange-600">{countdownTime.minutes}</span><span className="text-[10px] text-orange-500">Mnt</span></div>
-                            <div className="bg-white p-2 rounded-lg border border-orange-200"><span className="text-xl font-bold block text-red-500">{countdownTime.seconds}</span><span className="text-[10px] text-gray-400">Dtk</span></div>
+                            <div className="bg-orange-100 p-2 rounded-lg"><span className="text-xl font-bold block text-orange-700">{countdownTime.days}</span><span className="text-[10px] text-orange-600">Hr</span></div>
+                            <div className="bg-orange-50 p-2 rounded-lg"><span className="text-xl font-bold block text-orange-600">{countdownTime.hours}</span><span className="text-[10px] text-orange-500">Jm</span></div>
+                            <div className="bg-orange-50 p-2 rounded-lg"><span className="text-xl font-bold block text-orange-600">{countdownTime.minutes}</span><span className="text-[10px] text-orange-500">Mn</span></div>
+                            <div className="bg-white p-2 rounded-lg border border-orange-200"><span className="text-xl font-bold block text-red-500">{countdownTime.seconds}</span><span className="text-[10px] text-gray-400">Dt</span></div>
                         </div>
-                    ) : (
-                        <div className="p-6 border-2 border-dashed border-gray-200 rounded-xl text-center"><p className="text-gray-400 text-sm">Pilih acara di atas dulu ya 👆</p></div>
                     )}
                 </div>
             )}
@@ -334,11 +314,52 @@ export default function DashboardPage() {
     </div>
   );
 
+  // --- GAME RENDER LOGIC ---
+  const renderGameContent = () => {
+    // 1. Jika sedang main flappy bird
+    if (selectedGame === "flappy") {
+        return <FlappyBirdGame onBack={() => setSelectedGame(null)} />;
+    }
+
+    // 2. Jika di Menu Game
+    return (
+        <div className="h-full flex flex-col items-center justify-center animate-in fade-in zoom-in p-6">
+            <h2 className="text-2xl font-bold text-pink-600 mb-6 flex items-center gap-2">
+                <Gamepad2/> Pilih Game
+            </h2>
+            
+            <div className="grid grid-cols-2 gap-4 w-full max-w-md">
+                {/* Game 1: Flappy Bird */}
+                <button 
+                    onClick={() => setSelectedGame("flappy")}
+                    className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group"
+                >
+                    <div className="bg-cyan-100 p-4 rounded-full group-hover:bg-cyan-200 transition">
+                        <Bird size={32} className="text-cyan-600" />
+                    </div>
+                    <span className="font-bold text-gray-700">Flappy Love</span>
+                </button>
+
+                {/* Game 2: Coming Soon */}
+                <button 
+                    disabled 
+                    className="bg-gray-50 p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 opacity-60 cursor-not-allowed"
+                >
+                    <div className="bg-gray-200 p-4 rounded-full">
+                        <Plus size={32} className="text-gray-400" />
+                    </div>
+                    <span className="font-bold text-gray-400">Soon...</span>
+                </button>
+            </div>
+        </div>
+    );
+  };
+
   return (
     <main className="fixed inset-0 bg-gradient-to-br from-pink-400 to-red-300 font-sans text-slate-800 overflow-hidden">
-      <BackgroundHearts />
+      {/* Background Hearts hanya muncul di Home untuk performa */}
+      {activeTab === 'home' && <BackgroundHearts />}
       
-      {/* NOTIFIKASI GABOLEH */}
       <AnimatePresence>
         {wrongGuessAlert && (
             <motion.div 
@@ -348,7 +369,7 @@ export default function DashboardPage() {
                 className="fixed top-10 left-0 right-0 z-[100] flex justify-center pointer-events-none"
             >
                 <motion.div 
-                    animate={{ x: [-5, 5, -5, 5, 0] }} // Shake effect
+                    animate={{ x: [-5, 5, -5, 5, 0] }}
                     transition={{ duration: 0.3 }}
                     className="bg-red-500 text-white px-8 py-4 rounded-full shadow-2xl border-4 border-white flex items-center gap-3"
                 >
@@ -440,13 +461,12 @@ export default function DashboardPage() {
                                 </motion.div>
                             )}
 
-                            {/* STEP 4: TEBAK MAKANAN (ANIMASI GOYANG & KLIK GEDE) */}
+                            {/* STEP 4: TEBAK MAKANAN */}
                             {surpriseStep === 4 && (
                                 <motion.div 
                                     key="step4"
                                     className="flex flex-col items-center justify-center h-full w-full"
                                 >
-                                    {/* Judul */}
                                     <motion.h3 
                                         initial={{ y: -50, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
@@ -455,10 +475,7 @@ export default function DashboardPage() {
                                         Si manis ini suka apa ya?? 🤔
                                     </motion.h3>
 
-                                    {/* WADAH ORBIT */}
                                     <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center">
-                                        
-                                        {/* Foto Tengah */}
                                         <motion.div
                                             layoutId="main-photo"
                                             initial={{ scale: 1.5, opacity: 0 }}
@@ -468,18 +485,12 @@ export default function DashboardPage() {
                                             <img src="/AyangkuManis.png" alt="Foto Pacar" className="w-full h-full object-cover" />
                                         </motion.div>
 
-                                        {/* --- MAKANAN DI 4 SUDUT (GOYANG) --- */}
-                                        
-                                        {/* 1. SEBLAK (Kiri Atas) */}
+                                        {/* MAKANAN BUTTONS */}
                                         <motion.button
                                             initial={{ scale: 0, x: -50, y: -50 }}
-                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }} // Goyang
-                                            transition={{ 
-                                                default: { duration: 0.5 }, 
-                                                rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" } 
-                                            }}
-                                            whileHover={{ scale: 1.2 }} // Gede di PC
-                                            whileTap={{ scale: 1.2 }}   // Gede di HP
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }}
+                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" } }}
+                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
                                             onClick={() => handleFoodClick(false)}
                                             className="absolute -top-4 -left-4 md:-top-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
                                         >
@@ -487,16 +498,11 @@ export default function DashboardPage() {
                                             <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Seblak</span>
                                         </motion.button>
 
-                                        {/* 2. RUJAK (Kanan Atas) */}
                                         <motion.button
                                             initial={{ scale: 0, x: 50, y: -50 }}
-                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }} // Goyang
-                                            transition={{ 
-                                                default: { duration: 0.5 }, 
-                                                rotate: { repeat: Infinity, duration: 2.2, ease: "easeInOut" } 
-                                            }}
-                                            whileHover={{ scale: 1.2 }}
-                                            whileTap={{ scale: 1.2 }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }}
+                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.2, ease: "easeInOut" } }}
+                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
                                             onClick={() => handleFoodClick(false)}
                                             className="absolute -top-4 -right-4 md:-top-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
                                         >
@@ -504,16 +510,11 @@ export default function DashboardPage() {
                                             <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Rujak</span>
                                         </motion.button>
 
-                                        {/* 3. NANAS (Kiri Bawah) */}
                                         <motion.button
                                             initial={{ scale: 0, x: -50, y: 50 }}
-                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }} // Goyang
-                                            transition={{ 
-                                                default: { duration: 0.5 }, 
-                                                rotate: { repeat: Infinity, duration: 2.5, ease: "easeInOut" } 
-                                            }}
-                                            whileHover={{ scale: 1.2 }}
-                                            whileTap={{ scale: 1.2 }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }}
+                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.5, ease: "easeInOut" } }}
+                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
                                             onClick={() => handleFoodClick(false)}
                                             className="absolute -bottom-4 -left-4 md:-bottom-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
                                         >
@@ -521,16 +522,11 @@ export default function DashboardPage() {
                                             <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Nanas</span>
                                         </motion.button>
 
-                                        {/* 4. MATCHA (Kanan Bawah - BENAR) */}
                                         <motion.button
                                             initial={{ scale: 0, x: 50, y: 50 }}
-                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }} // Goyang
-                                            transition={{ 
-                                                default: { duration: 0.5 }, 
-                                                rotate: { repeat: Infinity, duration: 2.1, ease: "easeInOut" } 
-                                            }}
-                                            whileHover={{ scale: 1.2 }}
-                                            whileTap={{ scale: 1.2 }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }}
+                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.1, ease: "easeInOut" } }}
+                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
                                             onClick={() => handleFoodClick(true)}
                                             className="absolute -bottom-4 -right-4 md:-bottom-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg border-2 border-transparent hover:border-green-400 z-20"
                                         >
@@ -563,13 +559,7 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {activeTab === "game" && (
-                    <div className="h-full flex flex-col items-center justify-center animate-in fade-in zoom-in">
-                        <Gamepad2 size={64} className="text-pink-200 mb-4"/>
-                        <h2 className="text-2xl font-bold text-pink-600 mb-2">Mini Game</h2>
-                        <p className="text-gray-400 text-sm">Sabar ya, lagi dibikin... 🛠️</p>
-                    </div>
-                )}
+                {activeTab === "game" && renderGameContent()}
 
                 {activeTab === "calendar" && renderCalendar()}
 
