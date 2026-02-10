@@ -2,9 +2,29 @@
 
 import { useState, useEffect, memo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird } from "lucide-react"; 
+// Tambahkan CalendarCheck untuk icon menu baru
+import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight } from "lucide-react"; 
 import { supabase } from "@/lib/supabaseClient";
-import FlappyBirdGame from "@/components/FlappyBirdGame"; // Pastikan path import sesuai
+import FlappyBirdGame from "@/components/FlappyBirdGame"; 
+import TicTacToeGame from "@/components/TicTacToeGame";
+// Pastikan kamu punya font valentine di globals.css, kalau belum pakai font-serif dulu
+
+// --- KONFIGURASI FOTO BULANAN ---
+// Ganti nama file sesuai foto di folder public kamu
+const MONTH_IMAGES = [
+  "/Januari.jpeg",   // Index 0
+  "/Februari.jpeg",  // Index 1
+  "/Maret.jpeg",
+  "/April.jpeg",
+  "/Mei.jpeg",
+  "/Juni.jpeg",
+  "/Juli.jpeg",
+  "/Agustus.jpeg",
+  "/September.jpeg",
+  "/Oktober.jpeg",
+  "/November.jpeg",
+  "/Desember.jpeg"   // Index 11
+];
 
 // --- Tipe Data ---
 type EventData = {
@@ -58,9 +78,7 @@ const Typewriter = ({ text, onComplete, speed = 100, delayAfter = 1000, classNam
 };
 
 // --- OPTIMIZED BACKGROUND HEARTS ---
-// Mengurangi jumlah partikel dan menggunakan properti sederhana agar enteng di HP
 const BackgroundHearts = memo(() => {
-  // Hanya render di client side untuk menghindari mismatch hydration
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -79,7 +97,7 @@ const BackgroundHearts = memo(() => {
             initial={{ y: "110vh", opacity: 0 }}
             animate={{ y: "-10vh", opacity: [0, 0.5, 0] }}
             transition={{ 
-                duration: Math.random() * 10 + 15, // Lebih lambat biar ga berat
+                duration: Math.random() * 10 + 15,
                 repeat: Infinity, 
                 delay: Math.random() * 10,
                 ease: "linear" 
@@ -153,7 +171,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("home");
   const [calendarTab, setCalendarTab] = useState("relationship");
   const [noBtnPos, setNoBtnPos] = useState({ x: 0, y: 0 });
-  const [selectedGame, setSelectedGame] = useState<string | null>(null); // State untuk Menu Game
+  const [selectedGame, setSelectedGame] = useState<string | null>(null); 
   const constraintsRef = useRef(null);
   
   const [surpriseStep, setSurpriseStep] = useState(0);
@@ -172,7 +190,10 @@ export default function DashboardPage() {
   const [selectedCountdownId, setSelectedCountdownId] = useState<string>("");
   const [countdownTime, setCountdownTime] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
-  // FETCH DATA HANYA SAAT TAB DIBUKA (Optimasi)
+  // --- STATE UNTUK KALENDER AYANG (Baru) ---
+  const [currentCalDate, setCurrentCalDate] = useState(new Date());
+
+  // FETCH DATA
   useEffect(() => { 
       if (activeTab === 'calendar' && events.length === 0) fetchEvents();
       if (activeTab === 'notes' && notes.length === 0) fetchNotes();
@@ -246,29 +267,53 @@ export default function DashboardPage() {
 
   const moveNoButton = () => { setNoBtnPos({ x: Math.random()*150-75, y: Math.random()*150-75 }); };
 
+  // --- LOGIC KALENDER AYANG (CUSTOM) ---
+  const generateCalendarDays = (date: Date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1).getDay(); // 0 = Sunday
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    
+    const days = [];
+    // Padding hari kosong
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    // Hari tanggal
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+    return days;
+  };
+
+  const changeMonth = (offset: number) => {
+    setCurrentCalDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+  };
+
   const renderCalendar = () => (
     <div className="w-full h-full flex flex-col md:flex-row overflow-hidden animate-in fade-in">
         <div className="w-full md:w-1/3 bg-pink-50 md:border-r border-pink-100 p-2 flex flex-row md:flex-col gap-2 overflow-x-auto shrink-0 no-scrollbar">
              {[
                { id: 'relationship', icon: Clock, label: 'Timer' },
                { id: 'events', icon: List, label: 'Events' },
-               { id: 'countdown', icon: Hourglass, label: 'Countdown' }
+               { id: 'countdown', icon: Hourglass, label: 'Countdown' },
+               { id: 'realCalendar', icon: CalendarCheck, label: 'Your Calender' } // Menu Baru
              ].map(item => (
                <button key={item.id} onClick={() => setCalendarTab(item.id)} 
-                 className={`p-3 rounded-xl text-left flex items-center gap-3 transition-all flex-1 md:flex-none justify-center md:justify-start
+                 className={`p-3 rounded-xl text-left flex items-center gap-3 transition-all flex-1 md:flex-none justify-center md:justify-start whitespace-nowrap
                  ${calendarTab===item.id ? 'bg-white text-pink-600 shadow-sm ring-1 ring-pink-200' : 'text-gray-500 hover:bg-white/50'}`}>
                  <item.icon size={18}/> <span className="text-xs font-bold">{item.label}</span>
                </button>
              ))}
         </div>
         
-        <div className="flex-1 p-4 md:p-6 flex flex-col items-center justify-start md:justify-center overflow-y-auto w-full">
+        <div className="flex-1 p-4 md:p-6 flex flex-col items-center justify-start md:justify-center overflow-y-auto w-full relative">
+            
+            {/* 1. RELATIONSHIP TIMER */}
             {calendarTab === 'relationship' && (
                 <div className="w-full text-center mt-4 md:mt-0">
                     <h3 className="text-lg font-bold text-pink-500 mb-4">Kita sudah bersama:</h3>
                     <RelationshipTimer />
                 </div>
             )}
+
+            {/* 2. EVENTS LIST */}
             {calendarTab === 'events' && (
                 <div className="w-full max-w-md flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
@@ -294,6 +339,8 @@ export default function DashboardPage() {
                     </div>
                 </div>
             )}
+
+            {/* 3. COUNTDOWN */}
             {calendarTab === 'countdown' && (
                 <div className="w-full max-w-sm flex flex-col items-center mt-4 md:mt-0">
                     <select className="w-full p-3 mb-6 border rounded-xl bg-white text-sm" onChange={e=>setSelectedCountdownId(e.target.value)} value={selectedCountdownId}>
@@ -310,6 +357,68 @@ export default function DashboardPage() {
                     )}
                 </div>
             )}
+
+            {/* 4. REAL CALENDAR (CUSTOM BACKGROUND & FONT) */}
+            {calendarTab === 'realCalendar' && (
+                <div className="w-full h-full max-w-sm mx-auto flex flex-col relative rounded-2xl overflow-hidden shadow-2xl bg-pink-100">
+                    
+                    {/* --- BACKGROUND LAYER --- */}
+                    <div className="absolute inset-0 z-0">
+                        {/* Gambar Ayang sesuai Bulan */}
+                        <div 
+                            className="absolute inset-0 transition-all duration-500"
+                            style={{
+                                backgroundImage: `url(${MONTH_IMAGES[currentCalDate.getMonth()] || '/AyangkuManis.png'})`, // Fallback kalau array kosong
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                            }}
+                        />
+                        {/* Overlay Pink (Blending) */}
+                        <div className="absolute inset-0 bg-pink-500/40 mix-blend-hard-light backdrop-blur-[2px]"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-pink-900/60 to-transparent"></div>
+                    </div>
+
+                    {/* --- CONTENT LAYER --- */}
+                    <div className="relative z-10 flex flex-col h-full p-4 text-white">
+                        
+                        {/* Header Bulan */}
+                        <div className="flex justify-between items-center mb-6">
+                            <button onClick={() => changeMonth(-1)} className="p-2 bg-white/20 rounded-full hover:bg-white/40 backdrop-blur-sm"><ChevronLeft size={20}/></button>
+                            <div className="text-center">
+                                <h3 className="text-3xl font-black font-valentine drop-shadow-md tracking-wider">
+                                    {currentCalDate.toLocaleString('default', { month: 'long' })}
+                                </h3>
+                                <p className="text-sm font-bold opacity-80">{currentCalDate.getFullYear()}</p>
+                            </div>
+                            <button onClick={() => changeMonth(1)} className="p-2 bg-white/20 rounded-full hover:bg-white/40 backdrop-blur-sm"><ChevronRight size={20}/></button>
+                        </div>
+
+                        {/* Grid Kalender */}
+                        <div className="grid grid-cols-7 gap-1 text-center mb-2">
+                            {['M', 'S', 'S', 'R', 'K', 'J', 'S'].map((d, i) => (
+                                <span key={i} className="text-xs font-bold text-pink-100">{d}</span>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7 gap-2 flex-1 content-start">
+                            {generateCalendarDays(currentCalDate).map((day, idx) => (
+                                <div key={idx} className="aspect-square flex items-center justify-center">
+                                    {day && (
+                                        <div className={`
+                                            w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full text-lg md:text-xl transition-all font-valentine
+                                            ${(day === new Date().getDate() && currentCalDate.getMonth() === new Date().getMonth() && currentCalDate.getFullYear() === new Date().getFullYear()) 
+                                                ? 'bg-pink-500 text-white shadow-lg scale-110 border-2 border-white' 
+                                                : 'bg-white/20 hover:bg-white/40 text-white backdrop-blur-sm shadow-sm'
+                                            }
+                                        `}>
+                                            {day}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     </div>
   );
@@ -321,7 +430,12 @@ export default function DashboardPage() {
         return <FlappyBirdGame onBack={() => setSelectedGame(null)} />;
     }
 
-    // 2. Jika di Menu Game
+    // 2. Jika sedang main Tic Tac Toe (BARU)
+    if (selectedGame === "tictactoe") {
+        return <TicTacToeGame onBack={() => setSelectedGame(null)} />;
+    }
+
+    // 3. Jika di Menu Game
     return (
         <div className="h-full flex flex-col items-center justify-center animate-in fade-in zoom-in p-6">
             <h2 className="text-2xl font-bold text-pink-600 mb-6 flex items-center gap-2">
@@ -337,18 +451,30 @@ export default function DashboardPage() {
                     <div className="bg-cyan-100 p-4 rounded-full group-hover:bg-cyan-200 transition">
                         <Bird size={32} className="text-cyan-600" />
                     </div>
-                    <span className="font-bold text-gray-700">Flappy Love</span>
+                    <span className="font-bold text-gray-700 text-sm">Flappy Rere</span>
                 </button>
 
-                {/* Game 2: Coming Soon */}
+                {/* Game 2: Tic Tac Toe (BARU) */}
+                <button 
+                    onClick={() => setSelectedGame("tictactoe")}
+                    className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group"
+                >
+                    <div className="bg-purple-100 p-4 rounded-full group-hover:bg-purple-200 transition">
+                        {/* Import Grid3X3 dari lucide-react dulu ya */}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+                    </div>
+                    <span className="font-bold text-gray-700 text-sm">Tic-Tac-Jidat</span>
+                </button>
+
+                {/* Game 3: Coming Soon */}
                 <button 
                     disabled 
-                    className="bg-gray-50 p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 opacity-60 cursor-not-allowed"
+                    className="bg-gray-50 p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 opacity-60 cursor-not-allowed col-span-2"
                 >
                     <div className="bg-gray-200 p-4 rounded-full">
                         <Plus size={32} className="text-gray-400" />
                     </div>
-                    <span className="font-bold text-gray-400">Soon...</span>
+                    <span className="font-bold text-gray-400 text-sm">Game Lainnya...</span>
                 </button>
             </div>
         </div>
