@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { ArrowLeft, RotateCcw, LocateFixed, Trophy, Crown, User } from "lucide-react";
 
-// --- KONFIGURASI GAME (NAVIGATION FINAL FIX) ---
+// --- KONFIGURASI GAME (SMOOTH NAVIGATION FIX) ---
 const WORLD_SIZE = 4000; 
 const FOOD_COUNT = 400; 
 const BOT_COUNT = 18;   
@@ -31,7 +31,7 @@ type GameObject = {
     // Props untuk AI Navigation
     targetX?: number; 
     targetY?: number; 
-    wanderAngle?: number; // Sudut jalan-jalan random
+    wanderAngle?: number; 
 };
 
 type LeaderboardItem = {
@@ -80,7 +80,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
       let x, y, safe;
       let attempts = 0;
       do {
-          const padding = 500;
+          const padding = 200;
           x = Math.random() * (WORLD_SIZE - padding * 2) + padding;
           y = Math.random() * (WORLD_SIZE - padding * 2) + padding;
           
@@ -263,7 +263,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
       p.x = Math.max(p.r, Math.min(WORLD_SIZE - p.r, p.x + p.vx!));
       p.y = Math.max(p.r, Math.min(WORLD_SIZE - p.r, p.y + p.vy!));
 
-      // --- 2. BOT LOGIC (FINAL FIX) ---
+      // --- 2. BOT LOGIC (SMOOTH NAVIGATION) ---
       bots.current.forEach(bot => {
         // Init Vectors
         let moveX = 0;
@@ -272,27 +272,33 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         let predatorDist = Infinity;
         let targetDist = Infinity;
         
-        // FIX TS ERROR: Definisikan type secara eksplisit di awal
         let predator: GameObject | null = null;
         let target: GameObject | null = null;
 
         const sensorRange = 600 + bot.r; 
+        const unsafeMargin = 80; // Jarak makanan yang dianggap "berbahaya" (terlalu pinggir)
 
-        // 1. SCAN LINGKUNGAN (Ganti forEach ke for...of untuk fix TS Error)
+        // 1. SCAN LINGKUNGAN
         const allObjects = [...foods.current, p, ...bots.current];
         for (const obj of allObjects) {
             if (obj.id === bot.id) continue;
             
+            // --- LOGIC ANTI STUCK: ABAIKAN MAKANAN DI PINGGIR ---
+            if (obj.x < unsafeMargin || obj.x > WORLD_SIZE - unsafeMargin || 
+                obj.y < unsafeMargin || obj.y > WORLD_SIZE - unsafeMargin) {
+                continue; // Skip makanan ini, jangan dikejar!
+            }
+
             const d = Math.hypot(bot.x - obj.x, bot.y - obj.y);
 
-            // Cek Predator (Musuh Besar)
+            // Cek Predator
             if (obj.r > bot.r * SIZE_TO_EAT_RATIO && d < sensorRange) { 
                 if (d < predatorDist) {
                     predatorDist = d;
                     predator = obj;
                 }
             } 
-            // Cek Target (Makanan/Musuh Kecil)
+            // Cek Target
             else if (bot.r > obj.r * SIZE_TO_EAT_RATIO && d < sensorRange * 1.2) {
                 if (d < targetDist) {
                     targetDist = d;
@@ -301,44 +307,64 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
             }
         }
 
-        // 2. HITUNG VEKTOR (Berdasarkan Prioritas)
+        // 2. TENTUKAN ARAH (Vector Calculation)
         if (predator) {
-            // Lari menjauh dari predator
             moveX = bot.x - predator.x;
             moveY = bot.y - predator.y;
         } else if (target) {
-            // Kejar target
             moveX = target.x - bot.x;
             moveY = target.y - bot.y;
         } else {
-            // Wandering (Jalan Random)
-            // Ubah sudut wander sedikit-sedikit biar natural
-            bot.wanderAngle = (bot.wanderAngle || 0) + (Math.random() - 0.5) * 0.5;
+            // Wandering Halus
+            bot.wanderAngle = (bot.wanderAngle || 0) + (Math.random() - 0.5) * 0.3;
             moveX = Math.cos(bot.wanderAngle) * 100;
             moveY = Math.sin(bot.wanderAngle) * 100;
         }
 
-        // 3. WALL REPULSION (Gaya tolak dinding - Absolute)
-        // Ini ditambahkan ke vektor gerakan, bukan menggantikannya (Fix Stuck)
-        const wallForce = 5000; // Gaya tolak sangat kuat
-        const wallMargin = 200; // Jarak mulai ditolak
+        // 3. NORMALIZE VECTOR (Penting agar gerakan konsisten)
+        const len = Math.hypot(moveX, moveY);
+        if (len > 0) {
+            moveX /= len;
+            moveY /= len;
+        }
 
-        if (bot.x < wallMargin) moveX += wallForce; // Dorong Kanan
-        if (bot.x > WORLD_SIZE - wallMargin) moveX -= wallForce; // Dorong Kiri
-        if (bot.y < wallMargin) moveY += wallForce; // Dorong Bawah
-        if (bot.y > WORLD_SIZE - wallMargin) moveY -= wallForce; // Dorong Atas
+        // 4. WALL GLIDING (Kunci Anti Stuck!)
+        // Alih-alih memantul keras, kita "belokkan" vektor jika dekat dinding
+        const wallSensor = 150; // Jarak mulai mendeteksi dinding
+        
+        // Bobot tolakan dinding (Semakin dekat semakin kuat, tapi tidak absolut)
+        let wallForceX = 0;
+        let wallForceY = 0;
 
-        // 4. APPLY MOVEMENT
-        const angle = Math.atan2(moveY, moveX);
+        if (bot.x < wallSensor) wallForceX = 1; // Dorong Kanan
+        else if (bot.x > WORLD_SIZE - wallSensor) wallForceX = -1; // Dorong Kiri
+
+        if (bot.y < wallSensor) wallForceY = 1; // Dorong Bawah
+        else if (bot.y > WORLD_SIZE - wallSensor) wallForceY = -1; // Dorong Atas
+
+        // GABUNGKAN VEKTOR
+        // Jika dekat dinding, vektor dinding mengambil alih sebagian kontrol
+        // Ini menciptakan efek "meluncur" (Gliding) sepanjang dinding
+        moveX += wallForceX * 1.5; 
+        moveY += wallForceY * 1.5;
+
+        // Re-Normalize Final Vector
+        const finalLen = Math.hypot(moveX, moveY);
+        if (finalLen > 0) {
+            moveX /= finalLen;
+            moveY /= finalLen;
+        }
+
+        // 5. APPLY MOVEMENT
         const botSpeed = (BASE_SPEED * 0.9) / Math.pow(bot.r / 20, 0.45); 
         
-        bot.vx = Math.cos(angle) * botSpeed;
-        bot.vy = Math.sin(angle) * botSpeed;
+        bot.vx = moveX * botSpeed;
+        bot.vy = moveY * botSpeed;
 
         bot.x += bot.vx;
         bot.y += bot.vy;
 
-        // 5. HARD CLAMP (Agar tidak keluar map)
+        // 6. HARD CLAMP (Safety Net Terakhir)
         bot.x = Math.max(bot.r, Math.min(WORLD_SIZE - bot.r, bot.x));
         bot.y = Math.max(bot.r, Math.min(WORLD_SIZE - bot.r, bot.y));
       });
@@ -351,7 +377,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         if (eater.id === 'player') setScore(Math.floor(eater.r));
       };
 
-      // Makan Food (100% Efficiency)
+      // Makan Food
       foods.current = foods.current.filter(f => {
           if (Math.hypot(p.x - f.x, p.y - f.y) < p.r - f.r/2) {
               handleEating(p, f, FOOD_EAT_EFFICIENCY); return false;
