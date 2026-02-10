@@ -517,7 +517,7 @@ export default function DashboardPage() {
                                     <h2 className="text-3xl font-bold text-gray-800 mb-2">Yeyyy! Sayangku akhirnya manuttt! 🎉</h2>
                                     <p className="text-gray-500 mb-8">Kamu emang kesayangan aku yang paling manissss!</p>
                                     <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MDJ9IbxxvDUQM/giphy.gif" alt="Cute Cat" className="w-48 rounded-xl shadow-lg mb-6" />
-                                    <button onClick={() => setSurpriseStep(0)} className="text-pink-500 hover:underline text-sm flex items-center gap-1"><RotateCcw size={14}/> Main lagi</button>
+                                    <button onClick={() => setSurpriseStep(0)} className="text-pink-500 hover:underline text-sm flex items-center gap-1"><RotateCcw size={14}/> Ulangi</button>
                                 </motion.div>
                             )}
 
