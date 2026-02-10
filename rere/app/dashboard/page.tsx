@@ -345,13 +345,13 @@ export default function DashboardPage() {
         
         <div className="md:hidden absolute top-4 left-6 z-10 flex items-center gap-2">
             <div className="bg-white/20 backdrop-blur-md p-1.5 rounded-full"><Heart size={16} fill="white" className="text-white"/></div>
-            <span className="font-bold text-white text-lg tracking-wide font-valentine">LoveApp</span>
+            <span className="font-bold text-white text-lg tracking-wide font-valentine">Rere Sayang</span>
         </div>
 
         <div className="w-full max-w-5xl h-[80vh] md:h-[85vh] bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50 flex flex-col relative mt-12 md:mt-0">
            
            <div className="hidden md:flex justify-between items-center p-6 border-b border-pink-50">
-               <div className="flex items-center gap-2"><div className="bg-pink-500 p-2 rounded-full text-white"><Heart size={20} fill="white" /></div><span className="font-bold text-pink-600 text-xl">LoveApp</span></div>
+               <div className="flex items-center gap-2"><div className="bg-pink-500 p-2 rounded-full text-white"><Heart size={20} fill="white" /></div><span className="font-bold text-pink-600 text-xl">Rere Sayang</span></div>
                <div className="flex gap-6">
                    {[
                        {id: 'home', label: 'Home'}, {id: 'game', label: 'Game'}, {id: 'calendar', label: 'Calendar'}, {id: 'notes', label: 'Notes'}
@@ -534,8 +534,8 @@ export default function DashboardPage() {
                                     <div className="bg-green-100 p-4 rounded-full mb-6">
                                         <CheckCircle size={64} className="text-green-500" />
                                     </div>
-                                    <h2 className="text-3xl font-bold text-gray-800 mb-2">Yeyyy! Bener Banget! 🎉</h2>
-                                    <p className="text-gray-500 mb-8">Kamu emang kesayangan aku yang paling ngerti!</p>
+                                    <h2 className="text-3xl font-bold text-gray-800 mb-2">Yeyyy! Akhirnya sayangkuu manuttttt! 🎉</h2>
+                                    <p className="text-gray-500 mb-8">Kamu emang kesayangan aku yang paling manisss!</p>
                                     <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MDJ9IbxxvDUQM/giphy.gif" alt="Cute Cat" className="w-48 rounded-xl shadow-lg mb-6" />
                                     <button onClick={() => setSurpriseStep(0)} className="text-pink-500 hover:underline text-sm flex items-center gap-1"><RotateCcw size={14}/> Main lagi</button>
                                 </motion.div>
