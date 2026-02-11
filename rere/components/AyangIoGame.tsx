@@ -1,54 +1,53 @@
 "use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { ArrowLeft, RotateCcw, LocateFixed, Trophy, Crown, User, Smartphone } from "lucide-react";
+import { ArrowLeft, RotateCcw, LocateFixed, Trophy, Crown, User } from "lucide-react";
 
-// --- KONFIGURASI GAME (ULTIMATE FIX) ---
+// --- KONFIGURASI GAME ---
 const WORLD_SIZE = 4000; 
 const FOOD_COUNT = 400; 
 const BOT_COUNT = 18;   
 const START_RADIUS = 25; 
 const BASE_SPEED = 3.5; 
 
-// --- ZONA AMAN (FIX STUCK) ---
-// Bot mulai ketakutan/menjauh dari tembok di jarak 200px
+// --- ZONA AMAN ---
 const WALL_SENSOR_RANGE = 200; 
-// Makanan HANYA boleh muncul minimal 350px dari tembok
-// Jarak 150px buffer ini memastikan bot keburu putar balik sebelum nempel tembok
 const SPAWN_MARGIN = 350; 
 
 // OPTIMASI RENDER
-const RENDER_PADDING = 150; // Buffer render luar layar
+const RENDER_PADDING = 150; 
 
 // CONFIG BALANCING
 const PVP_EAT_EFFICIENCY = 0.4; 
 const FOOD_EAT_EFFICIENCY = 1.0; 
 const SIZE_TO_EAT_RATIO = 1.05; 
 
-// Helper: Warna Acak
+// GANTI URL GAMBAR DI SINI!
+// Bisa pakai URL internet atau path file di folder public project kamu (cth: '/avatar.png')
+const PLAYER_IMAGE_URL = "/AyangManis.jpeg"; 
+
 const randomColor = () => `hsl(${Math.floor(Math.random() * 360)}, 85%, 65%)`;
 
 type GameObject = {
-    id: string;
-    x: number;
-    y: number;
-    r: number;
-    color: string;
-    vx?: number;
-    vy?: number;
-    name?: string;
-    isPlayer?: boolean;
-    // Props untuk AI Navigation
-    targetX?: number; 
-    targetY?: number; 
-    wanderAngle?: number; 
+  id: string;
+  x: number;
+  y: number;
+  r: number;
+  color: string;
+  vx?: number;
+  vy?: number;
+  name?: string;
+  isPlayer?: boolean;
+  targetX?: number; 
+  targetY?: number; 
+  wanderAngle?: number; 
 };
 
 type LeaderboardItem = {
-    id: string;
-    name: string;
-    score: number;
-    isPlayer: boolean;
+  id: string;
+  name: string;
+  score: number;
+  isPlayer: boolean;
 };
 
 export default function AyangIoGame({ onBack }: { onBack: () => void }) {
@@ -59,7 +58,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
   const [score, setScore] = useState(0); 
   const [highScore, setHighScore] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
-  const [isPortrait, setIsPortrait] = useState(false); // State untuk cek orientasi
+  // const [isPortrait, setIsPortrait] = useState(false); // Tidak lagi dibutuhkan untuk memblokir
   const [eatenBy, setEatenBy] = useState<string>("");
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
@@ -68,6 +67,9 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
   const isGameOverRef = useRef(false); 
   const requestRef = useRef<number>(0); 
   const frameCounterRef = useRef(0); 
+  
+  // Ref untuk Gambar Player
+  const playerImageRef = useRef<HTMLImageElement | null>(null);
 
   const player = useRef<GameObject>({ id: 'player', x: WORLD_SIZE / 2, y: WORLD_SIZE / 2, r: START_RADIUS, color: "#ec4899", vx: 0, vy: 0, name: "Kamu", isPlayer: true });
   const foods = useRef<GameObject[]>([]);
@@ -77,39 +79,37 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
   const mousePos = useRef<{ x: number, y: number } | null>(null);
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const joystickData = useRef<{ dx: number, dy: number, active: boolean }>({ dx: 0, dy: 0, active: false });
-  // Gyro refs dihapus total
   const joystickBaseRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // 1. LOAD IMAGE SAAT PERTAMA KALI
+    const img = new Image();
+    img.src = PLAYER_IMAGE_URL;
+    img.onload = () => {
+        playerImageRef.current = img;
+    };
+
     const saved = localStorage.getItem('ayangIo_highscore');
     if (saved) setHighScore(parseInt(saved));
     
-    // Cek Mobile & Orientasi Awal
-    const checkMobileAndOrientation = () => {
+    // Cek Mobile (Hapus logika blokir portrait)
+    const checkMobile = () => {
         const mobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
         setIsMobile(mobile);
-        if (mobile && window.innerHeight > window.innerWidth) {
-            setIsPortrait(true);
-        } else {
-            setIsPortrait(false);
-        }
     };
     
-    checkMobileAndOrientation();
-    window.addEventListener('resize', checkMobileAndOrientation);
-    return () => window.removeEventListener('resize', checkMobileAndOrientation);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // --- FUNGSI SAFE SPAWN (STRICT) ---
+  // --- FUNGSI SAFE SPAWN ---
   const getSafeSpawnPosition = (radius: number, checkPlayer = true) => {
       let x, y, safe;
       let attempts = 0;
       do {
-          // FORMULA SPAWN KETAT:
-          // Pastikan benar-benar di tengah, jauh dari SPAWN_MARGIN
           x = SPAWN_MARGIN + Math.random() * (WORLD_SIZE - 2 * SPAWN_MARGIN);
           y = SPAWN_MARGIN + Math.random() * (WORLD_SIZE - 2 * SPAWN_MARGIN);
-          
           safe = true;
           
           if (checkPlayer) {
@@ -117,7 +117,6 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
             if (distToPlayer < 500) safe = false; 
           }
           
-          // Cek tabrakan dengan bot lain saat spawn
           if (safe && checkPlayer) {
               for (const bot of bots.current) {
                   const dist = Math.hypot(x - bot.x, y - bot.y);
@@ -205,14 +204,12 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
     });
   };
 
-  // --- EVENT LISTENERS (KEYBOARD & MOUSE ONLY) ---
+  // --- EVENT LISTENERS ---
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => { keysPressed.current[e.code] = true; };
     const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.code] = false; };
     const handleMouseMove = (e: MouseEvent) => { mousePos.current = { x: e.clientX, y: e.clientY }; };
     
-    // Gyro listeners DIHAPUS agar tidak mengganggu analog
-
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("mousemove", handleMouseMove);
@@ -249,12 +246,11 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
       
       const p = player.current;
 
-      // --- 1. MOVEMENT PLAYER (JOYSTICK ONLY ON MOBILE) ---
+      // --- 1. MOVEMENT PLAYER ---
       let inputDx = 0;
       let inputDy = 0;
 
       if (isMobile) {
-          // HANYA TERIMA INPUT DARI JOYSTICK
           if (joystickData.current.active) {
               inputDx = joystickData.current.dx;
               inputDy = joystickData.current.dy;
@@ -287,7 +283,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
       p.x = Math.max(p.r, Math.min(WORLD_SIZE - p.r, p.x + p.vx!));
       p.y = Math.max(p.r, Math.min(WORLD_SIZE - p.r, p.y + p.vy!));
 
-      // --- 2. BOT LOGIC (ANTI STUCK + WALL GLIDING) ---
+      // --- 2. BOT LOGIC ---
       bots.current.forEach(bot => {
         let moveX = 0;
         let moveY = 0;
@@ -299,17 +295,12 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         let target: GameObject | null = null;
 
         const sensorRange = 600 + bot.r; 
-        
-        // Jarak 'Cuek': Jika makanan ada di zona ini, bot akan mengabaikannya
         const ignoreZone = WALL_SENSOR_RANGE + 20; 
 
-        // 1. SCAN LINGKUNGAN
         const allObjects = [...foods.current, p, ...bots.current];
         for (const obj of allObjects) {
             if (obj.id === bot.id) continue;
             
-            // --- STRICT IGNORE LOGIC ---
-            // Jika target terlalu dekat tembok, ABAIKAN TOTAL.
             if (obj.x < ignoreZone || obj.x > WORLD_SIZE - ignoreZone || 
                 obj.y < ignoreZone || obj.y > WORLD_SIZE - ignoreZone) {
                 continue; 
@@ -333,7 +324,6 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
             }
         }
 
-        // 2. VECTOR CALCULATION
         if (predator) {
             moveX = bot.x - predator.x;
             moveY = bot.y - predator.y;
@@ -352,22 +342,18 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
             moveY /= len;
         }
 
-        // 3. WALL GLIDING (Navigasi Mulus)
         let wallForceX = 0;
         let wallForceY = 0;
 
-        // Deteksi tembok lebih awal
         if (bot.x < WALL_SENSOR_RANGE) wallForceX = 1; 
         else if (bot.x > WORLD_SIZE - WALL_SENSOR_RANGE) wallForceX = -1;
 
         if (bot.y < WALL_SENSOR_RANGE) wallForceY = 1; 
         else if (bot.y > WORLD_SIZE - WALL_SENSOR_RANGE) wallForceY = -1; 
 
-        // Campur keinginan bot dengan tolakan dinding (Wall priority lebih tinggi)
         moveX += wallForceX * 2.0; 
         moveY += wallForceY * 2.0;
 
-        // Re-Normalize
         const finalLen = Math.hypot(moveX, moveY);
         if (finalLen > 0) {
             moveX /= finalLen;
@@ -407,20 +393,16 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         });
       });
       
-      // --- SELF CLEANING FOOD LOGIC (MOBILE FIX) ---
-      // Setiap 60 frame (1 detik), hapus paksa makanan yang ada di pinggir tembok
-      // Ini menjamin walaupun ada glitch spawn, makanan itu akan hilang
       if (frameCounterRef.current % 60 === 0) {
          foods.current = foods.current.filter(f => {
             if (f.x < SPAWN_MARGIN - 50 || f.x > WORLD_SIZE - (SPAWN_MARGIN - 50) ||
                 f.y < SPAWN_MARGIN - 50 || f.y > WORLD_SIZE - (SPAWN_MARGIN - 50)) {
-                return false; // Hapus makanan bandel
+                return false; 
             }
             return true;
          });
       }
 
-      // Respawn Food (STRICT SAFE ZONE)
       while (foods.current.length < FOOD_COUNT) {
         const pos = getSafeSpawnPosition(10, false);
         foods.current.push({ 
@@ -469,7 +451,6 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
           return; 
       }
       
-      // Bot Respawn Logic
       if(bots.current.length < BOT_COUNT) {
          if (Math.random() < 0.05) { 
              const botNames = ["Ayang Galak", "Ayang Manja", "Si Cantik", "Tukang Ngambek", "My Love", "Bebenyu", "Si Pesek", "Mantan", "Gebetan", "Kang Ghosting", "Buaya Darat", "Si Setia"];
@@ -503,7 +484,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
       }
     };
 
-    // >>> DRAW LOGIC (VIEW CULLING) <<<
+    // >>> DRAW LOGIC <<<
     const drawGame = () => {
         if (isGameOverRef.current) return;
         const p = player.current;
@@ -520,13 +501,12 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         
         ctx.translate(camX, camY);
 
-        // --- OPTIMASI RENDERING (CULLING) ---
         const viewLeft = p.x - screenCenterX - RENDER_PADDING;
         const viewRight = p.x + screenCenterX + RENDER_PADDING;
         const viewTop = p.y - screenCenterY - RENDER_PADDING;
         const viewBottom = p.y + screenCenterY + RENDER_PADDING;
 
-        // Grid (Optimized)
+        // Grid
         ctx.strokeStyle = "rgba(0,0,0,0.05)"; ctx.lineWidth = 2;
         ctx.beginPath();
         const startGridX = Math.max(0, Math.floor(viewLeft / 100) * 100);
@@ -542,7 +522,6 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
 
         const drawCircle = (obj: GameObject) => {
-            // CULLING CHECK
             if (obj.x + obj.r < viewLeft || 
                 obj.x - obj.r > viewRight || 
                 obj.y + obj.r < viewTop || 
@@ -550,16 +529,45 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
                 return;
             }
 
-            ctx.beginPath();
-            ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2);
-            ctx.fillStyle = obj.color;
-            ctx.fill();
+            // --- RENDER PLAYER DENGAN GAMBAR ---
+            if (obj.isPlayer && playerImageRef.current) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.clip(); // Potong canvas menjadi bentuk lingkaran
+                // Gambar image di dalam area terpotong
+                ctx.drawImage(playerImageRef.current, obj.x - obj.r, obj.y - obj.r, obj.r * 2, obj.r * 2);
+                
+                // Tambahkan border agar lebih jelas
+                ctx.beginPath();
+                ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2);
+                ctx.strokeStyle = "#ffffff"; 
+                ctx.lineWidth = 4; 
+                ctx.stroke();
+                
+                ctx.restore();
+            } else {
+                // Render Bot / Makanan biasa
+                ctx.beginPath();
+                ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2);
+                ctx.fillStyle = obj.color;
+                ctx.fill();
+            }
+            
+            // Text Nama
             if(obj.id === 'player') {
-                ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 4; ctx.stroke();
-                ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.font = `bold ${Math.max(12, obj.r/2)}px sans-serif`;
+                // Untuk player, nama ditaruh agak bawah karena ada gambar
+                ctx.fillStyle = "white"; 
+                ctx.textAlign = "center"; 
+                ctx.font = `bold ${Math.max(12, obj.r/2)}px sans-serif`;
+                ctx.shadowColor="black"; ctx.shadowBlur=4;
                 ctx.fillText(obj.name || "Kamu", obj.x, obj.y + obj.r/4);
+                ctx.shadowBlur=0;
             } else if (obj.name && obj.r > 20) {
-                 ctx.fillStyle = "rgba(255,255,255,0.8)"; ctx.textAlign = "center"; ctx.font = `bold ${Math.max(10, obj.r/2.5)}px sans-serif`;
+                 ctx.fillStyle = "rgba(255,255,255,0.8)"; 
+                 ctx.textAlign = "center"; 
+                 ctx.font = `bold ${Math.max(10, obj.r/2.5)}px sans-serif`;
                  ctx.fillText(obj.name, obj.x, obj.y + obj.r/4);
             }
         };
@@ -618,21 +626,14 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] bg-pink-100 overflow-hidden touch-none select-none">
       
-      {/* OVERLAY: PAKSA LANDSCAPE */}
-      {isMobile && isPortrait && (
-        <div className="absolute inset-0 z-[300] bg-black/90 flex flex-col items-center justify-center text-white text-center p-6">
-            <Smartphone size={64} className="mb-4 animate-spin-slow text-pink-500" />
-            <h2 className="text-2xl font-bold mb-2">Putar HP Kamu!</h2>
-            <p className="text-gray-300">Game ini wajib dimainkan dalam mode <br/><span className="text-pink-400 font-bold">LANDSCAPE</span> agar tidak error.</p>
-        </div>
-      )}
+      {/* OVERLAY "PUTAR HP" DIHAPUS 
+          Agar bisa dimainkan di Portrait
+      */}
 
       <canvas ref={canvasRef} className="touch-none block w-full h-full" />
 
-      {/* UI HUD: SKOR & LEADERBOARD */}
+      {/* UI HUD */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none z-10">
-        
-        {/* LEFT: BUTTON & SCORE */}
         <div className="flex flex-col gap-2">
             <button onClick={onBack} className="bg-white/80 p-2 rounded-full shadow-md pointer-events-auto self-start hover:bg-white transition"><ArrowLeft className="text-pink-600" /></button>
             <div className="flex gap-2">
@@ -645,7 +646,6 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
             </div>
         </div>
 
-        {/* RIGHT: LEADERBOARD */}
         <div className="bg-black/20 backdrop-blur-md p-3 rounded-xl border border-white/20 w-48 shadow-xl">
             <h3 className="text-white font-bold text-sm mb-2 flex items-center gap-2 border-b border-white/20 pb-1">
                 <Crown size={14} className="text-yellow-300"/> Leaderboard
@@ -661,27 +661,14 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
                         <span>{item.score}</span>
                     </li>
                 ))}
-                {leaderboard.length === 0 && <li className="text-white/50 text-xs italic">Loading...</li>}
             </ul>
         </div>
       </div>
       
-      {/* Instruksi PC */}
-      {!isMobile && !gameOver && (
-          <div className="absolute bottom-4 left-4 bg-white/60 p-3 rounded-xl text-gray-600 text-sm pointer-events-none backdrop-blur-sm z-10">
-              <p className="font-bold text-pink-500 mb-1">Cara Main:</p>
-              <ul className="list-disc list-inside">
-                  <li>Gerakan Mouse untuk arah</li>
-                  <li>Makan dot kecil & musuh kecil</li>
-                  <li>Hindari musuh besar!</li>
-              </ul>
-          </div>
-      )}
-
-      {/* MOBILE JOYSTICK (HANYA MUNCUL JIKA LANDSCAPE & TIDAK GAMEOVER) */}
-      {isMobile && !isPortrait && !gameOver && (
+      {/* JOYSTICK UNTUK SEMUA MODE MOBILE (PORTRAIT/LANDSCAPE) */}
+      {isMobile && !gameOver && (
         <>
-            <div className="absolute bottom-8 right-8 pointer-events-auto z-10"
+            <div className="absolute bottom-16 right-8 pointer-events-auto z-10"
                 ref={joystickBaseRef}
                 onTouchStart={handleJoystickStart}
                 onTouchMove={handleJoystickMove}
@@ -691,8 +678,8 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
                     <div className="w-14 h-14 bg-pink-500 rounded-full shadow-md transition-transform duration-75 ease-out border-2 border-white"></div>
                 </div>
             </div>
-             <div className="absolute bottom-6 w-full text-center text-pink-700 text-xs opacity-60 pointer-events-none font-bold z-10">
-                 <LocateFixed size={14} className="inline mr-1"/>Gunakan Analog
+             <div className="absolute bottom-10 right-10 w-32 text-center text-pink-700 text-xs opacity-60 pointer-events-none font-bold z-10">
+                 <LocateFixed size={14} className="inline mr-1"/>Analog
              </div>
         </>
       )}
