@@ -2,13 +2,24 @@
 
 import { useState, useEffect, memo, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight, Hand, CircleDot } from "lucide-react"; 
+import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight, Hand, CircleDot, Gift, Play as PlayIcon, Pause, SkipForward, SkipBack, Music, Volume2, VolumeX, Loader2 } from "lucide-react"; 
 import { supabase } from "@/lib/supabaseClient";
 import FlappyBirdGame from "@/components/FlappyBirdGame"; 
 import TicTacToeGame from "@/components/TicTacToeGame";
 // --- IMPORT GAME BARU ---
 import AyangIoGame from "@/components/AyangIoGame";
 import ChessGame from "@/components/ChessGame";
+
+// =======================================================
+// KONFIGURASI TANGGAL ULANG TAHUN 
+// =======================================================
+const TGL_LAHIR_AYANG = 23; 
+const BLN_LAHIR_AYANG = 3;  
+
+const TGL_LAHIR_KAMU = 3;  
+const BLN_LAHIR_KAMU = 9;  
+// =======================================================
+
 // --- KONFIGURASI FOTO BULANAN ---
 const MONTH_IMAGES = [
   "/Januari.jpeg",   
@@ -40,6 +51,12 @@ type NoteData = {
   color: string;
   x: number;
   y: number;
+};
+
+type SongData = {
+  id: number;
+  title: string;
+  url: string;
 };
 
 const NOTE_COLORS = [
@@ -165,6 +182,89 @@ const RelationshipTimer = () => {
   );
 };
 
+// --- KOMPONEN BIRTHDAY TIMER ---
+const BirthdayTimer = ({ title, targetDate, targetMonth, imgSrc, reverse = false }: { title: string, targetDate: number, targetMonth: number, imgSrc: string, reverse?: boolean }) => {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      let currentYear = now.getFullYear();
+      let bday = new Date(currentYear, targetMonth - 1, targetDate);
+
+      // Jika ultah sudah lewat tahun ini, hitung untuk tahun depan
+      if (now.getTime() > bday.getTime() && now.getDate() !== targetDate) {
+        bday = new Date(currentYear + 1, targetMonth - 1, targetDate);
+      } else if (now.getDate() === targetDate && now.getMonth() === targetMonth - 1) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+
+      const diff = bday.getTime() - now.getTime();
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((diff / 1000 / 60) % 60),
+        seconds: Math.floor((diff / 1000) % 60),
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate, targetMonth]);
+
+  const isToday = timeLeft.days === 0 && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0;
+
+  return (
+    <div className={`flex items-center gap-4 bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-pink-100 ${reverse ? 'flex-row-reverse' : 'flex-row'}`}>
+       <div className="w-20 h-20 shrink-0 rounded-full overflow-hidden border-4 border-pink-200 shadow-md">
+           <img src={imgSrc} alt={title} className="w-full h-full object-cover" />
+       </div>
+       <div className={`flex-1 flex flex-col ${reverse ? 'items-end text-right' : 'items-start text-left'}`}>
+           <h4 className="font-bold text-pink-600 mb-2 leading-tight">{title}</h4>
+           {isToday ? (
+               <div className="animate-pulse text-base font-black text-red-500 flex items-center gap-1">
+                   🎉 HAPPY BIRTHDAY! 🎉
+               </div>
+           ) : (
+               <div className={`grid grid-cols-4 gap-1.5 w-full max-w-[200px] ${reverse ? 'mr-0 ml-auto' : ''}`}>
+                   <div className="bg-pink-50 rounded-lg p-1 text-center"><span className="block font-black text-pink-500 text-sm">{timeLeft.days}</span><span className="block text-[8px] text-pink-400 uppercase font-bold">Hr</span></div>
+                   <div className="bg-pink-50 rounded-lg p-1 text-center"><span className="block font-black text-pink-500 text-sm">{timeLeft.hours}</span><span className="block text-[8px] text-pink-400 uppercase font-bold">Jm</span></div>
+                   <div className="bg-pink-50 rounded-lg p-1 text-center"><span className="block font-black text-pink-500 text-sm">{timeLeft.minutes}</span><span className="block text-[8px] text-pink-400 uppercase font-bold">Mn</span></div>
+                   <div className="bg-white border border-pink-100 rounded-lg p-1 text-center"><span className="block font-black text-red-400 text-sm">{timeLeft.seconds}</span><span className="block text-[8px] text-gray-400 uppercase font-bold">Dt</span></div>
+               </div>
+           )}
+       </div>
+    </div>
+  )
+};
+
+// --- VIEW KHUSUS ULTAH KITA ---
+const BirthdayView = () => (
+  <div className="w-full max-w-md flex flex-col gap-5 p-2 animate-in fade-in zoom-in">
+      <div className="text-center mb-2">
+         <h2 className="text-xl md:text-2xl font-bold text-pink-600 flex items-center justify-center gap-2 mb-1">
+             <Gift className="text-red-400" /> Countdown Ultah Kita
+         </h2>
+         <p className="text-gray-500 text-xs md:text-sm">Menghitung mundur hari spesial kesayangan ❤️</p>
+      </div>
+      
+      <BirthdayTimer 
+          title="Ulang Tahun Ayang 👑" 
+          targetDate={TGL_LAHIR_AYANG} 
+          targetMonth={BLN_LAHIR_AYANG} 
+          imgSrc="/MyQueen.jpeg" 
+      />
+      
+      <BirthdayTimer 
+          title="Ulang Tahun Kamu 🤴" 
+          targetDate={TGL_LAHIR_KAMU} 
+          targetMonth={BLN_LAHIR_KAMU} 
+          imgSrc="/FotoKamu.jpeg" 
+          reverse 
+      />
+  </div>
+);
+
+
 // --- MAIN DASHBOARD PAGE ---
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState("home");
@@ -176,6 +276,20 @@ export default function DashboardPage() {
   const [surpriseStep, setSurpriseStep] = useState(0);
   const [wrongGuessAlert, setWrongGuessAlert] = useState(false);
   const [pinchCount, setPinchCount] = useState(0); 
+
+  // --- AUDIO STATES ---
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [userInteracted, setUserInteracted] = useState(false);
+  const [isMusicExpanded, setIsMusicExpanded] = useState(false);
+  
+  // --- MUSIC PLAYLIST STATES ---
+  const [playlist, setPlaylist] = useState<SongData[]>([]);
+  const [currentSongIndex, setCurrentSongIndex] = useState(0);
+  const [newSongTitle, setNewSongTitle] = useState("");
+  const [newSongFile, setNewSongFile] = useState<File | null>(null); // File upload state
+  const [isUploadingSong, setIsUploadingSong] = useState(false); // Upload loading state
+  const [showAddSong, setShowAddSong] = useState(false);
 
   // --- DATABASE STATES ---
   const [events, setEvents] = useState<EventData[]>([]);
@@ -191,22 +305,130 @@ export default function DashboardPage() {
   const [countdownTime, setCountdownTime] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   // --- VARIABLES FOR RUBBER CHEEK EFFECT ---
-  // Motion values untuk melacak posisi drag
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  // Transformasi: Kalau ditarik X nya, scale X membesar (melar)
   const scaleX = useTransform(x, [-150, 150], [0.6, 1.6]); 
-  // Rotasi dikit biar makin lucu
   const rotate = useTransform(y, [-150, 150], [-10, 10]);
 
-  // --- STATE UNTUK KALENDER AYANG (Baru) ---
   const [currentCalDate, setCurrentCalDate] = useState(new Date());
 
-  // FETCH DATA
+  // FETCH ALL DATA
   useEffect(() => { 
       if (activeTab === 'calendar' && events.length === 0) fetchEvents();
       if (activeTab === 'notes' && notes.length === 0) fetchNotes();
   }, [activeTab]);
+
+  useEffect(() => {
+      fetchPlaylist();
+  }, []);
+
+  // --- AUDIO LOGIC ---
+  const fetchPlaylist = async () => {
+      const { data } = await supabase.from('songs').select('*').order('id', { ascending: true });
+      if (data && data.length > 0) {
+          setPlaylist(data);
+      } else {
+          // Default fallback song if DB is empty
+          setPlaylist([{ id: 0, title: "Lagu Romantis Default", url: "/backsound.mp3" }]);
+      }
+  };
+
+  // --- FUNGSI UPLOAD MP3 KE SUPABASE STORAGE ---
+  const handleAddSong = async () => {
+      if (!newSongTitle || !newSongFile) return alert("Isi judul dan pilih file lagunya!");
+      
+      setIsUploadingSong(true);
+
+      // 1. Bersihkan nama file dan buat unik
+      const fileExt = newSongFile.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      // 2. Upload file ke Supabase Storage (Bucket: 'songs')
+      const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('songs')
+          .upload(fileName, newSongFile);
+
+      if (uploadError) {
+          alert("Gagal mengunggah lagu: " + uploadError.message);
+          setIsUploadingSong(false);
+          return;
+      }
+
+      // 3. Dapatkan Public URL
+      const { data: { publicUrl } } = supabase.storage
+          .from('songs')
+          .getPublicUrl(fileName);
+
+      // 4. Simpan info lagu dan Public URL ke tabel 'songs'
+      const { error: dbError } = await supabase.from('songs').insert([{ 
+          title: newSongTitle, 
+          url: publicUrl 
+      }]);
+
+      if (!dbError) {
+          fetchPlaylist();
+          setNewSongTitle("");
+          setNewSongFile(null);
+          setShowAddSong(false);
+      } else {
+          alert("Lagu terupload, tapi gagal menyimpannya ke database.");
+      }
+
+      setIsUploadingSong(false);
+  };
+
+  // Mainkan lagu saat ganti index playlist
+  useEffect(() => {
+      if (playlist.length > 0) {
+          if (!audioRef.current) {
+              audioRef.current = new Audio(playlist[currentSongIndex].url);
+              audioRef.current.volume = 0.5;
+              audioRef.current.addEventListener('ended', nextSong);
+          } else {
+              const wasPlaying = !audioRef.current.paused;
+              audioRef.current.src = playlist[currentSongIndex].url;
+              if (wasPlaying) audioRef.current.play().catch(e => console.error(e));
+          }
+      }
+      return () => {
+          if (audioRef.current) {
+              audioRef.current.removeEventListener('ended', nextSong);
+          }
+      };
+  }, [currentSongIndex, playlist]);
+
+  const toggleAudio = () => {
+    if (audioRef.current) {
+      if (isPlayingAudio) {
+        audioRef.current.pause();
+        setIsPlayingAudio(false);
+      } else {
+        audioRef.current.play().catch(e => console.log("Play failed:", e));
+        setIsPlayingAudio(true);
+      }
+    }
+  };
+
+  const nextSong = () => {
+      if (playlist.length === 0) return;
+      setCurrentSongIndex((prev) => (prev + 1) % playlist.length);
+  };
+
+  const prevSong = () => {
+      if (playlist.length === 0) return;
+      setCurrentSongIndex((prev) => (prev - 1 + playlist.length) % playlist.length);
+  };
+
+  const handleFirstInteraction = () => {
+    if (!userInteracted) {
+        setUserInteracted(true);
+        if (audioRef.current && !isPlayingAudio) {
+            audioRef.current.play()
+            .then(() => setIsPlayingAudio(true))
+            .catch(() => console.log("Auto-play blocked"));
+        }
+    }
+  };
 
   const handleFoodClick = (isCorrect: boolean) => {
     if (isCorrect) {
@@ -217,15 +439,12 @@ export default function DashboardPage() {
     }
   };
 
-  // --- EFEK GETARAN CUBIT ---
   const handlePinchStart = () => {
-    // Efek Getar di HP
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(50); // Getar pendek 50ms
-    }
+    if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
     setPinchCount(prev => prev + 1);
   };
 
+  // --- CRUD DATA ---
   const fetchEvents = async () => {
     setLoadingEvents(true);
     const { data } = await supabase.from('events').select('*').order('date', { ascending: true });
@@ -234,8 +453,8 @@ export default function DashboardPage() {
   };
   const handleAddEvent = async () => {
     if (!newEvent.title || !newEvent.date) return alert("Isi lengkap dulu dong!");
-    const { error } = await supabase.from('events').insert([newEvent]);
-    if (!error) { fetchEvents(); setNewEvent({ title: "", date: "", description: "" }); }
+    await supabase.from('events').insert([newEvent]);
+    fetchEvents(); setNewEvent({ title: "", date: "", description: "" });
   };
   const handleDeleteEvent = async (id: number) => {
     if(!confirm("Hapus acara ini?")) return;
@@ -252,8 +471,8 @@ export default function DashboardPage() {
     if(!newNote.title || !newNote.content) return alert("Tulis dulu catatannya!");
     const randomX = Math.floor(Math.random() * 50); 
     const randomY = Math.floor(Math.random() * 50);
-    const { error } = await supabase.from('notes').insert([{ ...newNote, x: randomX, y: randomY }]);
-    if(!error) { fetchNotes(); setNewNote({ title: "", content: "", color: NOTE_COLORS[0].bg }); setShowNoteForm(false); }
+    await supabase.from('notes').insert([{ ...newNote, x: randomX, y: randomY }]);
+    fetchNotes(); setNewNote({ title: "", content: "", color: NOTE_COLORS[0].bg }); setShowNoteForm(false);
   };
   const handleDeleteNote = async (id: number) => {
     if(!confirm("Buang catatan ini?")) return;
@@ -285,11 +504,10 @@ export default function DashboardPage() {
 
   const moveNoButton = () => { setNoBtnPos({ x: Math.random()*150-75, y: Math.random()*150-75 }); };
 
-  // --- LOGIC KALENDER AYANG ---
   const generateCalendarDays = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
-    const firstDay = new Date(year, month, 1).getDay(); // 0 = Sunday
+    const firstDay = new Date(year, month, 1).getDay(); 
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const days = [];
     for (let i = 0; i < firstDay; i++) days.push(null);
@@ -306,6 +524,7 @@ export default function DashboardPage() {
         <div className="w-full md:w-1/3 bg-pink-50 md:border-r border-pink-100 p-2 flex flex-row md:flex-col gap-2 overflow-x-auto shrink-0 no-scrollbar">
              {[
                { id: 'relationship', icon: Clock, label: 'Timer' },
+               { id: 'birthdays', icon: Gift, label: 'Ultah' }, 
                { id: 'events', icon: List, label: 'Events' },
                { id: 'countdown', icon: Hourglass, label: 'Countdown' },
                { id: 'realCalendar', icon: CalendarCheck, label: 'Kalender Kita' }
@@ -324,6 +543,10 @@ export default function DashboardPage() {
                     <h3 className="text-lg font-bold text-pink-500 mb-4">Kita sudah bersama:</h3>
                     <RelationshipTimer />
                 </div>
+            )}
+            {/* TAMPILAN VIEW ULTAH DI DALAM KALENDER */}
+            {calendarTab === 'birthdays' && (
+                <BirthdayView />
             )}
             {calendarTab === 'events' && (
                 <div className="w-full max-w-md flex flex-col h-full">
@@ -427,7 +650,6 @@ export default function DashboardPage() {
     if (selectedGame === "tictactoe") {
         return <TicTacToeGame onBack={() => setSelectedGame(null)} />;
     }
-    // --- LOGIKA RENDER GAME BARU (AYANG.IO) ---
     if (selectedGame === "ayangio") {
         return <AyangIoGame onBack={() => setSelectedGame(null)} />;
     }
@@ -454,7 +676,7 @@ export default function DashboardPage() {
                     <span className="font-bold text-gray-700 text-sm">Tic-Tac-Jidat</span>
                 </button>
 
-                {/* Game 3: Ayang.io (BARU) */}
+                {/* Game 3: Ayang.io */}
                 <button onClick={() => setSelectedGame("ayangio")} className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group">
                     <div className="bg-rose-100 p-4 rounded-full group-hover:bg-rose-200 transition">
                         <CircleDot size={32} className="text-rose-600" />
@@ -462,7 +684,7 @@ export default function DashboardPage() {
                     <span className="font-bold text-gray-700 text-sm">Ayang.io</span>
                 </button>
 
-                {/* Catur */}
+                {/* Game 4: Catur */}
                 <button onClick={() => setSelectedGame("chess")} className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group">
                     <div className="bg-slate-100 p-4 rounded-full group-hover:bg-slate-200 transition">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600"><path d="M2 19h20"/><path d="M12 22v-3"/><path d="M7 19v-4"/><path d="M17 19v-4"/><path d="M12 15V8"/><path d="M15 8l-3-3-3 3"/></svg>
@@ -475,7 +697,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="fixed inset-0 bg-gradient-to-br from-pink-400 to-red-300 font-sans text-slate-800 overflow-hidden">
+    <main className="fixed inset-0 bg-gradient-to-br from-pink-400 to-red-300 font-sans text-slate-800 overflow-hidden" onClick={handleFirstInteraction}>
       {activeTab === 'home' && <BackgroundHearts />}
       
       <AnimatePresence>
@@ -498,8 +720,104 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
+      {/* --- FLOATING MUSIC PLAYER --- */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col items-end">
+          <motion.div 
+            layout
+            className="flex items-center gap-2 bg-white/40 hover:bg-white/60 backdrop-blur-md px-4 py-2 rounded-full shadow-lg cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); setIsMusicExpanded(!isMusicExpanded); }}
+          >
+              <Music size={18} className="text-pink-600" />
+              <AnimatePresence>
+                  {isMusicExpanded && playlist.length > 0 && (
+                      <motion.span 
+                        initial={{ opacity: 0, width: 0 }} 
+                        animate={{ opacity: 1, width: "auto" }} 
+                        exit={{ opacity: 0, width: 0 }}
+                        className="text-xs font-bold text-pink-700 whitespace-nowrap overflow-hidden"
+                      >
+                          {playlist[currentSongIndex].title}
+                      </motion.span>
+                  )}
+              </AnimatePresence>
+              {isPlayingAudio ? <Volume2 size={18} className="text-pink-600 ml-1" /> : <VolumeX size={18} className="text-pink-600 ml-1" />}
+          </motion.div>
+
+          <AnimatePresence>
+            {isMusicExpanded && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.9 }}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-2 bg-white p-4 rounded-2xl shadow-2xl border border-pink-100 w-64 origin-top-right"
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-bold text-sm text-gray-700">Playlist Ayang 🎶</h4>
+                  <button onClick={() => setShowAddSong(!showAddSong)} className="text-pink-500 hover:bg-pink-50 p-1 rounded-md transition"><Plus size={16}/></button>
+                </div>
+                
+                {/* Kontrol Utama */}
+                <div className="flex justify-center items-center gap-4 mb-4 bg-pink-50 py-2 rounded-xl border border-pink-100">
+                    <button onClick={prevSong} className="text-pink-500 hover:text-pink-700"><SkipBack size={20}/></button>
+                    <button onClick={toggleAudio} className="bg-pink-500 text-white p-2 rounded-full shadow-md hover:scale-105 active:scale-95 transition">
+                        {isPlayingAudio ? <Pause size={20}/> : <PlayIcon size={20}/>}
+                    </button>
+                    <button onClick={nextSong} className="text-pink-500 hover:text-pink-700"><SkipForward size={20}/></button>
+                </div>
+
+                {/* List Lagu */}
+                <div className="max-h-32 overflow-y-auto space-y-1 mb-2 pr-1 custom-scrollbar">
+                    {playlist.length === 0 ? <p className="text-xs text-gray-400 text-center">Belum ada lagu.</p> : playlist.map((song, idx) => (
+                        <div 
+                            key={song.id} 
+                            onClick={() => { setCurrentSongIndex(idx); setIsPlayingAudio(true); }}
+                            className={`text-xs p-2 rounded-lg cursor-pointer truncate transition-colors ${idx === currentSongIndex ? 'bg-pink-100 font-bold text-pink-700 border border-pink-200' : 'text-gray-600 hover:bg-gray-50'}`}
+                        >
+                            {idx + 1}. {song.title}
+                        </div>
+                    ))}
+                </div>
+
+                {/* Form Tambah Lagu (DENGAN INPUT FILE MP3) */}
+                <AnimatePresence>
+                    {showAddSong && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                            <div className="pt-2 border-t border-gray-100 flex flex-col gap-2 mt-2">
+                                <input 
+                                    type="text" 
+                                    placeholder="Judul Lagu" 
+                                    value={newSongTitle} 
+                                    onChange={e=>setNewSongTitle(e.target.value)} 
+                                    className="w-full p-2 text-xs bg-gray-50 rounded border focus:outline-pink-400"
+                                />
+                                
+                                <input 
+                                    type="file" 
+                                    accept="audio/mp3, audio/*" 
+                                    onChange={e => setNewSongFile(e.target.files?.[0] || null)} 
+                                    className="w-full p-2 text-xs bg-gray-50 rounded border focus:outline-pink-400 file:mr-3 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-pink-100 file:text-pink-600 hover:file:bg-pink-200 cursor-pointer"
+                                />
+
+                                <button 
+                                    onClick={handleAddSong} 
+                                    disabled={isUploadingSong}
+                                    className="w-full bg-pink-500 text-white text-xs py-2 rounded-lg font-bold flex justify-center items-center gap-2 disabled:opacity-50 transition"
+                                >
+                                    {isUploadingSong ? (
+                                        <><Loader2 size={14} className="animate-spin" /> Uploading...</>
+                                    ) : "Simpan Lagu"}
+                                </button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+      </div>
+
       <div className="w-full h-full flex flex-col items-center justify-start pt-4 pb-24 md:pb-4 md:justify-center px-4">
-        
         <div className="md:hidden absolute top-4 left-6 z-10 flex items-center gap-2">
             <div className="bg-white/20 backdrop-blur-md p-1.5 rounded-full"><Heart size={16} fill="white" className="text-white"/></div>
             <span className="font-bold text-white text-lg tracking-wide font-valentine">Rere Sayang</span>
@@ -511,7 +829,10 @@ export default function DashboardPage() {
                <div className="flex items-center gap-2"><div className="bg-pink-500 p-2 rounded-full text-white"><Heart size={20} fill="white" /></div><span className="font-bold text-pink-600 text-xl">Rere Sayang</span></div>
                <div className="flex gap-6">
                    {[
-                       {id: 'home', label: 'Home'}, {id: 'game', label: 'Game'}, {id: 'calendar', label: 'Calendar'}, {id: 'notes', label: 'Notes'}
+                       {id: 'home', label: 'Home'}, 
+                       {id: 'game', label: 'Game'}, 
+                       {id: 'calendar', label: 'Calendar'}, 
+                       {id: 'notes', label: 'Notes'}
                    ].map(link => (
                        <button key={link.id} onClick={()=>setActiveTab(link.id)} className={`text-sm font-bold transition-colors ${activeTab===link.id ? 'text-pink-600 bg-pink-50 px-3 py-1 rounded-full' : 'text-gray-400 hover:text-pink-500'}`}>
                            {link.label}
@@ -524,240 +845,76 @@ export default function DashboardPage() {
                 {activeTab === "home" && (
                     <div className="h-full flex flex-col items-center justify-center p-6 text-center">
                         <AnimatePresence mode="wait">
-                            
-                            {/* STEP 0: TOMBOL AWAL */}
                             {surpriseStep === 0 && (
-                                <motion.div 
-                                    key="step0"
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                    className="flex flex-col items-center"
-                                >
+                                <motion.div key="step0" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, y: -20 }} className="flex flex-col items-center">
                                     <h2 className="text-4xl md:text-6xl font-bold text-pink-600 mb-4 font-valentine drop-shadow-sm">Kamu Manis Sayang...</h2>
                                     <p className="text-gray-500 mb-8 text-base md:text-lg max-w-xs md:max-w-none mx-auto">Jangan pencet tombol abu-abu yaaa 😡</p>
                                     <div className="flex flex-col md:flex-row items-center gap-4 relative w-full max-w-md mx-auto">
-                                        <button onClick={() => setSurpriseStep(1)} className="w-full md:w-auto bg-gradient-to-r from-pink-500 to-red-400 text-white font-bold py-3 md:py-4 px-8 rounded-full shadow-lg hover:shadow-pink-500/50 active:scale-95 transition-all text-lg">Iya aku manis!</button>
+                                        <button onClick={() => { setSurpriseStep(1); handleFirstInteraction(); }} className="w-full md:w-auto bg-gradient-to-r from-pink-500 to-red-400 text-white font-bold py-3 md:py-4 px-8 rounded-full shadow-lg hover:shadow-pink-500/50 active:scale-95 transition-all text-lg">Iya aku manis!</button>
                                         <motion.button animate={{ x: noBtnPos.x, y: noBtnPos.y }} onHoverStart={moveNoButton} onClick={moveNoButton} className="w-full md:w-auto bg-gray-200 text-gray-500 font-bold py-3 md:py-4 px-8 rounded-full active:scale-95 transition-colors text-lg">Gak Manis</motion.button>
                                     </div>
                                 </motion.div>
                             )}
 
-                            {/* STEP 1-2: TYPEWRITER */}
-                            {surpriseStep === 1 && (
-                                <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-md mx-auto">
-                                    <Typewriter text="Hehehe kamu ngaku manis ya sayanggg... 🤭" speed={80} delayAfter={2000} onComplete={() => setSurpriseStep(2)} className="text-2xl md:text-4xl font-bold text-gray-700" />
-                                </motion.div>
-                            )}
-                            {surpriseStep === 2 && (
-                                <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-md mx-auto">
-                                    <Typewriter text="Iya kok sayang, kamu emang maniss banget! ❤️" speed={80} delayAfter={2000} onComplete={() => setSurpriseStep(3)} className="text-3xl md:text-5xl text-pink-600 font-valentine" />
-                                </motion.div>
-                            )}
+                            {surpriseStep === 1 && (<motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-md mx-auto"><Typewriter text="Hehehe kamu ngaku manis ya sayanggg... 🤭" speed={80} delayAfter={2000} onComplete={() => setSurpriseStep(2)} className="text-2xl md:text-4xl font-bold text-gray-700" /></motion.div>)}
+                            {surpriseStep === 2 && (<motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-md mx-auto"><Typewriter text="Iya kok sayang, kamu emang maniss banget! ❤️" speed={80} delayAfter={2000} onComplete={() => setSurpriseStep(3)} className="text-3xl md:text-5xl text-pink-600 font-valentine" /></motion.div>)}
 
-                            {/* STEP 3: BUKTI FOTO */}
                             {surpriseStep === 3 && (
-                                <motion.div 
-                                    key="step3"
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.8 }}
-                                    transition={{ duration: 0.8 }}
-                                    className="flex flex-col items-center justify-center h-full w-full max-w-lg mx-auto"
-                                >
+                                <motion.div key="step3" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.8 }} className="flex flex-col items-center justify-center h-full w-full max-w-lg mx-auto">
                                     <Typewriter text="Ini buktinya 👇" speed={100} delayAfter={0} className="text-gray-500 mb-2 block" />
-                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, 10, 0] }} transition={{ delay: 1.5, repeat: Infinity, duration: 1.5 }}>
-                                        <ArrowDown className="text-pink-400 mb-4" size={32}/>
-                                    </motion.div>
+                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, 10, 0] }} transition={{ delay: 1.5, repeat: Infinity, duration: 1.5 }}><ArrowDown className="text-pink-400 mb-4" size={32}/></motion.div>
                                     <motion.div initial={{ opacity: 0, scale: 0.8, rotate: -5 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ delay: 2, type: "spring" }} className="relative p-2 bg-white shadow-xl rotate-2 border border-gray-100 rounded-xl mb-6">
                                         <img src="/AyangkuManis.png" alt="Foto Kamu" className="w-48 h-48 md:w-64 md:h-64 object-cover rounded-lg" />
                                         <div className="absolute -bottom-5 right-0 rotate-12"><span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded shadow-sm font-bold border border-yellow-200">Manis bgt kan?</span></div>
                                     </motion.div>
-                                    <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3 }} onClick={() => setSurpriseStep(4)} className="bg-pink-500 text-white px-6 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2">
-                                        Next <ArrowRight size={18}/>
-                                    </motion.button>
+                                    <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3 }} onClick={() => setSurpriseStep(4)} className="bg-pink-500 text-white px-6 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2">Next <ArrowRight size={18}/></motion.button>
                                 </motion.div>
                             )}
 
-                            {/* STEP 4: TEBAK MAKANAN */}
                             {surpriseStep === 4 && (
-                                <motion.div 
-                                    key="step4"
-                                    className="flex flex-col items-center justify-center h-full w-full"
-                                >
-                                    <motion.h3 
-                                        initial={{ y: -50, opacity: 0 }}
-                                        animate={{ y: 0, opacity: 1 }}
-                                        className="text-2xl md:text-3xl font-bold text-pink-600 mb-10 z-20 text-center px-4"
-                                    >
-                                        Si manis ini suka apa ya?? 🤔
-                                    </motion.h3>
-
+                                <motion.div key="step4" className="flex flex-col items-center justify-center h-full w-full">
+                                    <motion.h3 initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-2xl md:text-3xl font-bold text-pink-600 mb-10 z-20 text-center px-4">Si manis ini suka apa ya?? 🤔</motion.h3>
                                     <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center">
-                                        <motion.div
-                                            initial={{ scale: 1.5, opacity: 0 }}
-                                            animate={{ scale: 1, opacity: 1 }}
-                                            className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl overflow-hidden z-10"
-                                        >
-                                            <img src="/AyangkuManis.png" alt="Foto Pacar" className="w-full h-full object-cover" />
-                                        </motion.div>
-
-                                        {/* MAKANAN BUTTONS */}
-                                        <motion.button
-                                            initial={{ scale: 0, x: -50, y: -50 }}
-                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }}
-                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" } }}
-                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
-                                            onClick={() => handleFoodClick(false)}
-                                            className="absolute -top-4 -left-4 md:-top-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
-                                        >
-                                            <img src="/Seblak.jpeg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Seblak" />
-                                            <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Seblak</span>
-                                        </motion.button>
-
-                                        <motion.button
-                                            initial={{ scale: 0, x: 50, y: -50 }}
-                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }}
-                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.2, ease: "easeInOut" } }}
-                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
-                                            onClick={() => handleFoodClick(false)}
-                                            className="absolute -top-4 -right-4 md:-top-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
-                                        >
-                                            <img src="/Rujak.jpeg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Rujak" />
-                                            <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Rujak</span>
-                                        </motion.button>
-
-                                        <motion.button
-                                            initial={{ scale: 0, x: -50, y: 50 }}
-                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }}
-                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.5, ease: "easeInOut" } }}
-                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
-                                            onClick={() => handleFoodClick(false)}
-                                            className="absolute -bottom-4 -left-4 md:-bottom-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
-                                        >
-                                            <img src="https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=150&q=80" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Nanas" />
-                                            <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Nanas</span>
-                                        </motion.button>
-
-                                        <motion.button
-                                            initial={{ scale: 0, x: 50, y: 50 }}
-                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }}
-                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.1, ease: "easeInOut" } }}
-                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
-                                            onClick={() => handleFoodClick(true)}
-                                            className="absolute -bottom-4 -right-4 md:-bottom-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg border-2 border-transparent hover:border-green-400 z-20"
-                                        >
-                                            <img src="/Matcha.jpg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Matcha" />
-                                            <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Matcha</span>
-                                        </motion.button>
+                                        <motion.div initial={{ scale: 1.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl overflow-hidden z-10"><img src="/AyangkuManis.png" alt="Foto Pacar" className="w-full h-full object-cover" /></motion.div>
+                                        <motion.button initial={{ scale: 0, x: -50, y: -50 }} animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }} transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" } }} whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }} onClick={() => handleFoodClick(false)} className="absolute -top-4 -left-4 md:-top-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"><img src="/Seblak.jpeg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Seblak" /><span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Seblak</span></motion.button>
+                                        <motion.button initial={{ scale: 0, x: 50, y: -50 }} animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }} transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.2, ease: "easeInOut" } }} whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }} onClick={() => handleFoodClick(false)} className="absolute -top-4 -right-4 md:-top-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"><img src="/Rujak.jpeg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Rujak" /><span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Rujak</span></motion.button>
+                                        <motion.button initial={{ scale: 0, x: -50, y: 50 }} animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }} transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.5, ease: "easeInOut" } }} whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }} onClick={() => handleFoodClick(false)} className="absolute -bottom-4 -left-4 md:-bottom-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"><img src="https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=150&q=80" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Nanas" /><span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Nanas</span></motion.button>
+                                        <motion.button initial={{ scale: 0, x: 50, y: 50 }} animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }} transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.1, ease: "easeInOut" } }} whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }} onClick={() => handleFoodClick(true)} className="absolute -bottom-4 -right-4 md:-bottom-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg border-2 border-transparent hover:border-green-400 z-20"><img src="/Matcha.jpg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Matcha" /><span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Matcha</span></motion.button>
                                     </div>
                                 </motion.div>
                             )}
 
-                            {/* STEP 5: SUCCESS & LANJUT BUTTON */}
                             {surpriseStep === 5 && (
-                                <motion.div 
-                                    key="step5"
-                                    initial={{ scale: 0.8, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    exit={{ opacity: 0, scale: 0.8 }}
-                                    className="flex flex-col items-center justify-center h-full text-center p-6"
-                                >
-                                    <div className="bg-green-100 p-4 rounded-full mb-6">
-                                        <CheckCircle size={64} className="text-green-500" />
-                                    </div>
+                                <motion.div key="step5" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="flex flex-col items-center justify-center h-full text-center p-6">
+                                    <div className="bg-green-100 p-4 rounded-full mb-6"><CheckCircle size={64} className="text-green-500" /></div>
                                     <h2 className="text-3xl font-bold text-gray-800 mb-2">Yeyyy! Akhirnya sayangkuu manuttttt! 🎉</h2>
                                     <p className="text-gray-500 mb-8">Kamu emang kesayangan aku yang paling manisss!</p>
-                                    <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MDJ9IbxxvDUQM/giphy.gif" alt="Cute Cat" className="w-48 rounded-xl shadow-lg mb-6" />
-                                    
-                                    {/* BUTTON LANJUT KE STEP 6 */}
-                                    <motion.button 
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        onClick={() => setSurpriseStep(6)} 
-                                        className="bg-pink-500 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2 text-lg"
-                                    >
-                                        Lanjut sayang ❤️ <ArrowRight size={20}/>
-                                    </motion.button>
+                                    <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MDJ9IbxxvDUQM/giphy.gif" alt="Cute Cat" className="w-48 rounded-xl shadow-lg mb-6" />
+                                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setSurpriseStep(6)} className="bg-pink-500 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2 text-lg">Lanjut sayang ❤️ <ArrowRight size={20}/></motion.button>
                                 </motion.div>
                             )}
 
-                            {/* STEP 6: CUBIT PIPI (NEW FEATURE) */}
                             {surpriseStep === 6 && (
-                                <motion.div 
-                                    key="step6"
-                                    initial={{ scale: 0.8, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    className="flex flex-col items-center justify-center h-full text-center p-6"
-                                >
-                                    <h2 className="text-2xl md:text-3xl font-bold text-pink-600 mb-2 font-valentine">
-                                        Cubit Pipi Karet! 🤏
-                                    </h2>
-                                    <p className="text-gray-500 mb-8 text-sm max-w-xs mx-auto">
-                                        Tarik bagian <b>Pipi Kanan</b> buat nyubit! (Yang kiri aku paku biar gak lari 😝)
-                                    </p>
-
-                                    {/* AREA CUBIT (ELASTIC DRAG) */}
+                                <motion.div key="step6" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center justify-center h-full text-center p-6">
+                                    <h2 className="text-2xl md:text-3xl font-bold text-pink-600 mb-2 font-valentine">Cubit Pipi Karet! 🤏</h2>
+                                    <p className="text-gray-500 mb-8 text-sm max-w-xs mx-auto">Tarik bagian <b>Pipi Kanan</b> buat nyubit! (Yang kiri aku paku biar gak lari 😝)</p>
                                     <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center mb-8">
-                                        <motion.div
-                                            style={{ 
-                                                x, 
-                                                y, 
-                                                scaleX, // Ini yang bikin efek MELAR (Stretch)
-                                                rotate,
-                                                transformOrigin: "20% 50%" // PAKU DI KIRI (Telinga Kiri)
-                                            }}
-                                            drag
-                                            dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }} 
-                                            dragElastic={0.15} // Makin kecil makin "berat" karetnya
-                                            whileTap={{ cursor: "grabbing" }}
-                                            onPointerDown={handlePinchStart}
-                                            className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-white shadow-2xl overflow-hidden cursor-grab active:cursor-grabbing relative z-10 bg-pink-200 touch-none"
-                                        >
-                                            <img 
-                                                src="/FotoCubit.jpeg" 
-                                                alt="Foto Cubit" 
-                                                className="w-full h-full object-cover pointer-events-none" 
-                                            />
-                                            
-                                            {/* Text Bubble saat dicubit */}
-                                            <motion.div 
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center opacity-0 active:opacity-100 transition-opacity"
-                                            >
-                                                <span className="bg-white text-pink-600 px-3 py-1 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
-                                                    Melarrr! 🤣
-                                                </span>
-                                            </motion.div>
+                                        <motion.div style={{ x, y, scaleX, rotate, transformOrigin: "20% 50%" }} drag dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }} dragElastic={0.15} whileTap={{ cursor: "grabbing" }} onPointerDown={handlePinchStart} className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-white shadow-2xl overflow-hidden cursor-grab active:cursor-grabbing relative z-10 bg-pink-200 touch-none">
+                                            <img src="/FotoCubit.jpeg" alt="Foto Cubit" className="w-full h-full object-cover pointer-events-none" />
+                                            <motion.div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center opacity-0 active:opacity-100 transition-opacity"><span className="bg-white text-pink-600 px-3 py-1 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">Melarrr! 🤣</span></motion.div>
                                         </motion.div>
-                                        
-                                        {/* Icon Tangan Petunjuk (Di Pipi Kanan) */}
-                                        <motion.div 
-                                            animate={{ x: [5, 20, 5], opacity: [0.5, 1, 0.5] }}
-                                            transition={{ repeat: Infinity, duration: 1.5 }}
-                                            className="absolute top-1/2 right-0 md:right-4 transform -translate-y-1/2 text-pink-400 pointer-events-none"
-                                        >
-                                            <Hand size={32} className="rotate-90"/>
-                                        </motion.div>
+                                        <motion.div animate={{ x: [5, 20, 5], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.5 }} className="absolute top-1/2 right-0 md:right-4 transform -translate-y-1/2 text-pink-400 pointer-events-none"><Hand size={32} className="rotate-90"/></motion.div>
                                     </div>
-                                    
-                                    <div className="bg-white/50 px-4 py-2 rounded-lg border border-pink-100 mb-6">
-                                        <span className="text-pink-500 font-bold">{pinchCount}</span> <span className="text-gray-500 text-sm">kali ditarik 🤕</span>
-                                    </div>
-
-                                    <button onClick={() => setSurpriseStep(0)} className="text-gray-400 hover:text-pink-500 hover:underline text-sm flex items-center gap-1 transition-colors">
-                                        <RotateCcw size={14}/> Udahan ah, kasian
-                                    </button>
+                                    <div className="bg-white/50 px-4 py-2 rounded-lg border border-pink-100 mb-6"><span className="text-pink-500 font-bold">{pinchCount}</span> <span className="text-gray-500 text-sm">kali ditarik 🤕</span></div>
+                                    <button onClick={() => setSurpriseStep(0)} className="text-gray-400 hover:text-pink-500 hover:underline text-sm flex items-center gap-1 transition-colors"><RotateCcw size={14}/> Udahan ah, kasian</button>
                                 </motion.div>
                             )}
-
                         </AnimatePresence>
                     </div>
                 )}
 
                 {activeTab === "game" && renderGameContent()}
-
                 {activeTab === "calendar" && renderCalendar()}
-
                 {activeTab === "notes" && (
                     <div className="relative w-full h-full bg-orange-50 flex flex-col">
                         <div className="flex-1 w-full h-full overflow-auto relative touch-pan-x touch-pan-y" ref={constraintsRef}>
@@ -823,7 +980,6 @@ export default function DashboardPage() {
                 )
             })}
         </div>
-
       </div>
     </main>
   );
