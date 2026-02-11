@@ -251,14 +251,14 @@ const BirthdayView = () => (
           title="Ulang Tahun Ayang 👑" 
           targetDate={TGL_LAHIR_AYANG} 
           targetMonth={BLN_LAHIR_AYANG} 
-          imgSrc="/MyQueen.jpeg" 
+          imgSrc="/MyAyang.jpeg" 
       />
       
       <BirthdayTimer 
           title="Ulang Tahun Kamu 🤴" 
           targetDate={TGL_LAHIR_KAMU} 
           targetMonth={BLN_LAHIR_KAMU} 
-          imgSrc="/FotoKamu.jpeg" 
+          imgSrc="/MyPhoto.jpeg" 
           reverse 
       />
   </div>
