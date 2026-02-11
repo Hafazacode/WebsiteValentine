@@ -8,7 +8,7 @@ import FlappyBirdGame from "@/components/FlappyBirdGame";
 import TicTacToeGame from "@/components/TicTacToeGame";
 // --- IMPORT GAME BARU ---
 import AyangIoGame from "@/components/AyangIoGame";
-
+import ChessGame from "@/components/ChessGame";
 // --- KONFIGURASI FOTO BULANAN ---
 const MONTH_IMAGES = [
   "/Januari.jpeg",   
@@ -431,7 +431,9 @@ export default function DashboardPage() {
     if (selectedGame === "ayangio") {
         return <AyangIoGame onBack={() => setSelectedGame(null)} />;
     }
-
+    if (selectedGame === "chess") {
+        return <ChessGame onBack={() => setSelectedGame(null)} />;
+    }
     return (
         <div className="h-full flex flex-col items-center justify-center animate-in fade-in zoom-in p-6">
             <h2 className="text-2xl font-bold text-pink-600 mb-6 flex items-center gap-2">
@@ -460,10 +462,12 @@ export default function DashboardPage() {
                     <span className="font-bold text-gray-700 text-sm">Ayang.io</span>
                 </button>
 
-                {/* Tombol Coming Soon */}
-                <button disabled className="bg-gray-50 p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-3 opacity-60 cursor-not-allowed">
-                    <div className="bg-gray-200 p-4 rounded-full"><Plus size={32} className="text-gray-400" /></div>
-                    <span className="font-bold text-gray-400 text-sm">Game Lainnya...</span>
+                {/* Catur */}
+                <button onClick={() => setSelectedGame("chess")} className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group">
+                    <div className="bg-slate-100 p-4 rounded-full group-hover:bg-slate-200 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600"><path d="M2 19h20"/><path d="M12 22v-3"/><path d="M7 19v-4"/><path d="M17 19v-4"/><path d="M12 15V8"/><path d="M15 8l-3-3-3 3"/></svg>
+                    </div>
+                    <span className="font-bold text-gray-700 text-sm">Catur Ayang</span>
                 </button>
             </div>
         </div>
