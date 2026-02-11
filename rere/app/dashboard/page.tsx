@@ -711,7 +711,7 @@ export default function DashboardPage() {
                                             className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-white shadow-2xl overflow-hidden cursor-grab active:cursor-grabbing relative z-10 bg-pink-200 touch-none"
                                         >
                                             <img 
-                                                src="/AyangkuManis.png" 
+                                                src="/FotoCubit.jpeg" 
                                                 alt="Foto Cubit" 
                                                 className="w-full h-full object-cover pointer-events-none" 
                                             />
