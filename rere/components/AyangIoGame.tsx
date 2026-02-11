@@ -3,12 +3,21 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { ArrowLeft, RotateCcw, LocateFixed, Trophy, Crown, User } from "lucide-react";
 
-// --- KONFIGURASI GAME (SMOOTH NAVIGATION FIX) ---
+// --- KONFIGURASI GAME (OPTIMIZED & SAFE SPAWN) ---
 const WORLD_SIZE = 4000; 
 const FOOD_COUNT = 400; 
 const BOT_COUNT = 18;   
 const START_RADIUS = 25; 
 const BASE_SPEED = 3.5; 
+
+// JARAK AMAN (PENTING AGAR BOT TIDAK STUCK)
+// Bot mulai takut tembok di jarak 150px
+// Maka makanan harus spawn minimal di jarak 250px agar bot tidak tergoda ke pinggir
+const WALL_SENSOR_RANGE = 150; 
+const SPAWN_MARGIN = 250; 
+
+// OPTIMASI: Jarak buffer render (gambar objek sedikit di luar layar biar ga kedip)
+const RENDER_PADDING = 100;
 
 // CONFIG BALANCING
 const PVP_EAT_EFFICIENCY = 0.4; 
@@ -75,20 +84,26 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
     setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0);
   }, []);
 
-  // --- FUNGSI SAFE SPAWN ---
-  const getSafeSpawnPosition = (radius: number) => {
+  // --- FUNGSI SAFE SPAWN (SAFE ZONE LOGIC) ---
+  // Fungsi ini memastikan objek tidak muncul di "Zona Maut" dekat tembok
+  const getSafeSpawnPosition = (radius: number, checkPlayer = true) => {
       let x, y, safe;
       let attempts = 0;
       do {
-          const padding = 200;
-          x = Math.random() * (WORLD_SIZE - padding * 2) + padding;
-          y = Math.random() * (WORLD_SIZE - padding * 2) + padding;
+          // FORMULA SPAWN AMAN:
+          // Min: SPAWN_MARGIN
+          // Max: WORLD_SIZE - SPAWN_MARGIN
+          x = SPAWN_MARGIN + Math.random() * (WORLD_SIZE - 2 * SPAWN_MARGIN);
+          y = SPAWN_MARGIN + Math.random() * (WORLD_SIZE - 2 * SPAWN_MARGIN);
           
           safe = true;
-          const distToPlayer = Math.hypot(x - player.current.x, y - player.current.y);
-          if (distToPlayer < 500) safe = false; 
           
-          if (safe) {
+          if (checkPlayer) {
+            const distToPlayer = Math.hypot(x - player.current.x, y - player.current.y);
+            if (distToPlayer < 500) safe = false; 
+          }
+          
+          if (safe && checkPlayer) {
               for (const bot of bots.current) {
                   const dist = Math.hypot(x - bot.x, y - bot.y);
                   if (dist < bot.r + 300) { 
@@ -115,9 +130,18 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         isPlayer: true
     };
 
-    foods.current = Array.from({ length: FOOD_COUNT }, (_, i) => ({
-      id: `food-${i}`, x: Math.random() * WORLD_SIZE, y: Math.random() * WORLD_SIZE, r: 5 + Math.random() * 3, color: randomColor(),
-    }));
+    // Spawn Food dengan Safe Position
+    foods.current = [];
+    for(let i=0; i<FOOD_COUNT; i++) {
+        const pos = getSafeSpawnPosition(10, false); // false = gak perlu cek jarak ke player utk makanan
+        foods.current.push({
+            id: `food-${i}`, 
+            x: pos.x, 
+            y: pos.y, 
+            r: 5 + Math.random() * 3, 
+            color: randomColor(),
+        });
+    }
 
     const botNames = ["Ayang Galak", "Ayang Manja", "Si Cantik", "Tukang Ngambek", "My Love", "Bebenyu", "Si Pesek", "Mantan", "Gebetan", "Kang Ghosting", "Buaya Darat", "Si Setia", "Playboy", "Si Polos", "Kang Tikung"];
     
@@ -125,7 +149,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
     
     for (let i = 0; i < BOT_COUNT; i++) {
         const r = Math.random() * 15 + 20; 
-        const spawnPos = getSafeSpawnPosition(r);
+        const spawnPos = getSafeSpawnPosition(r, true);
 
         bots.current.push({
             id: `bot-${i}`,
@@ -207,7 +231,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d", { alpha: false });
+    const ctx = canvas.getContext("2d", { alpha: false }); // Optimasi: Alpha false
     if (!ctx) return;
 
     const handleResize = () => {
@@ -263,9 +287,8 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
       p.x = Math.max(p.r, Math.min(WORLD_SIZE - p.r, p.x + p.vx!));
       p.y = Math.max(p.r, Math.min(WORLD_SIZE - p.r, p.y + p.vy!));
 
-      // --- 2. BOT LOGIC (SMOOTH NAVIGATION) ---
+      // --- 2. BOT LOGIC (SAFE & SMOOTH) ---
       bots.current.forEach(bot => {
-        // Init Vectors
         let moveX = 0;
         let moveY = 0;
         
@@ -276,17 +299,20 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         let target: GameObject | null = null;
 
         const sensorRange = 600 + bot.r; 
-        const unsafeMargin = 80; // Jarak makanan yang dianggap "berbahaya" (terlalu pinggir)
+        
+        // Safety Margin untuk AI (Lebih kecil dari spawn margin, tapi cukup aman)
+        const safetyMargin = WALL_SENSOR_RANGE + 50; 
 
         // 1. SCAN LINGKUNGAN
         const allObjects = [...foods.current, p, ...bots.current];
         for (const obj of allObjects) {
             if (obj.id === bot.id) continue;
             
-            // --- LOGIC ANTI STUCK: ABAIKAN MAKANAN DI PINGGIR ---
-            if (obj.x < unsafeMargin || obj.x > WORLD_SIZE - unsafeMargin || 
-                obj.y < unsafeMargin || obj.y > WORLD_SIZE - unsafeMargin) {
-                continue; // Skip makanan ini, jangan dikejar!
+            // --- LOGIC ANTI STUCK (IGNORE ZONE) ---
+            // Jika makanan/player terlalu dekat dengan tembok, bot akan pura-pura tidak melihatnya.
+            if (obj.x < safetyMargin || obj.x > WORLD_SIZE - safetyMargin || 
+                obj.y < safetyMargin || obj.y > WORLD_SIZE - safetyMargin) {
+                continue; 
             }
 
             const d = Math.hypot(bot.x - obj.x, bot.y - obj.y);
@@ -307,7 +333,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
             }
         }
 
-        // 2. TENTUKAN ARAH (Vector Calculation)
+        // 2. VECTOR CALCULATION
         if (predator) {
             moveX = bot.x - predator.x;
             moveY = bot.y - predator.y;
@@ -315,56 +341,45 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
             moveX = target.x - bot.x;
             moveY = target.y - bot.y;
         } else {
-            // Wandering Halus
             bot.wanderAngle = (bot.wanderAngle || 0) + (Math.random() - 0.5) * 0.3;
             moveX = Math.cos(bot.wanderAngle) * 100;
             moveY = Math.sin(bot.wanderAngle) * 100;
         }
 
-        // 3. NORMALIZE VECTOR (Penting agar gerakan konsisten)
         const len = Math.hypot(moveX, moveY);
         if (len > 0) {
             moveX /= len;
             moveY /= len;
         }
 
-        // 4. WALL GLIDING (Kunci Anti Stuck!)
-        // Alih-alih memantul keras, kita "belokkan" vektor jika dekat dinding
-        const wallSensor = 150; // Jarak mulai mendeteksi dinding
-        
-        // Bobot tolakan dinding (Semakin dekat semakin kuat, tapi tidak absolut)
+        // 3. WALL GLIDING (Navigasi Mulus di Tembok)
         let wallForceX = 0;
         let wallForceY = 0;
 
-        if (bot.x < wallSensor) wallForceX = 1; // Dorong Kanan
-        else if (bot.x > WORLD_SIZE - wallSensor) wallForceX = -1; // Dorong Kiri
+        if (bot.x < WALL_SENSOR_RANGE) wallForceX = 1; 
+        else if (bot.x > WORLD_SIZE - WALL_SENSOR_RANGE) wallForceX = -1;
 
-        if (bot.y < wallSensor) wallForceY = 1; // Dorong Bawah
-        else if (bot.y > WORLD_SIZE - wallSensor) wallForceY = -1; // Dorong Atas
+        if (bot.y < WALL_SENSOR_RANGE) wallForceY = 1; 
+        else if (bot.y > WORLD_SIZE - WALL_SENSOR_RANGE) wallForceY = -1; 
 
-        // GABUNGKAN VEKTOR
-        // Jika dekat dinding, vektor dinding mengambil alih sebagian kontrol
-        // Ini menciptakan efek "meluncur" (Gliding) sepanjang dinding
+        // Campur keinginan bot dengan tolakan dinding
         moveX += wallForceX * 1.5; 
         moveY += wallForceY * 1.5;
 
-        // Re-Normalize Final Vector
+        // Re-Normalize
         const finalLen = Math.hypot(moveX, moveY);
         if (finalLen > 0) {
             moveX /= finalLen;
             moveY /= finalLen;
         }
 
-        // 5. APPLY MOVEMENT
         const botSpeed = (BASE_SPEED * 0.9) / Math.pow(bot.r / 20, 0.45); 
-        
         bot.vx = moveX * botSpeed;
         bot.vy = moveY * botSpeed;
 
         bot.x += bot.vx;
         bot.y += bot.vy;
 
-        // 6. HARD CLAMP (Safety Net Terakhir)
         bot.x = Math.max(bot.r, Math.min(WORLD_SIZE - bot.r, bot.x));
         bot.y = Math.max(bot.r, Math.min(WORLD_SIZE - bot.r, bot.y));
       });
@@ -377,7 +392,6 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         if (eater.id === 'player') setScore(Math.floor(eater.r));
       };
 
-      // Makan Food
       foods.current = foods.current.filter(f => {
           if (Math.hypot(p.x - f.x, p.y - f.y) < p.r - f.r/2) {
               handleEating(p, f, FOOD_EAT_EFFICIENCY); return false;
@@ -392,9 +406,16 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         });
       });
       
-      // Respawn Food
+      // Respawn Food (SAFE ZONE)
       while (foods.current.length < FOOD_COUNT) {
-        foods.current.push({ id: `food-${Math.random()}`, x: Math.random()*WORLD_SIZE, y: Math.random()*WORLD_SIZE, r: 5+Math.random()*3, color: randomColor() });
+        const pos = getSafeSpawnPosition(10, false);
+        foods.current.push({ 
+            id: `food-${Math.random()}`, 
+            x: pos.x, 
+            y: pos.y, 
+            r: 5 + Math.random() * 3, 
+            color: randomColor() 
+        });
       }
 
       // --- PVP SYSTEM ---
@@ -434,11 +455,11 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
           return; 
       }
       
-      // Bot Respawn Logic
+      // Bot Respawn Logic (SAFE ZONE)
       if(bots.current.length < BOT_COUNT) {
          if (Math.random() < 0.05) { 
              const botNames = ["Ayang Galak", "Ayang Manja", "Si Cantik", "Tukang Ngambek", "My Love", "Bebenyu", "Si Pesek", "Mantan", "Gebetan", "Kang Ghosting", "Buaya Darat", "Si Setia"];
-             const spawnPos = getSafeSpawnPosition(25);
+             const spawnPos = getSafeSpawnPosition(25, true);
              
              bots.current.push({
                  id: `bot-respawn-${Math.random()}`, 
@@ -468,7 +489,7 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
       }
     };
 
-    // >>> DRAW LOGIC <<<
+    // >>> DRAW LOGIC (OPTIMIZED: VIEW CULLING) <<<
     const drawGame = () => {
         if (isGameOverRef.current) return;
         const p = player.current;
@@ -485,17 +506,39 @@ export default function AyangIoGame({ onBack }: { onBack: () => void }) {
         
         ctx.translate(camX, camY);
 
-        // Grid
+        // --- OPTIMASI RENDERING (VIEW FRUSTUM CULLING) ---
+        // Hitung area dunia yang terlihat di layar saat ini
+        const viewLeft = p.x - screenCenterX - RENDER_PADDING;
+        const viewRight = p.x + screenCenterX + RENDER_PADDING;
+        const viewTop = p.y - screenCenterY - RENDER_PADDING;
+        const viewBottom = p.y + screenCenterY + RENDER_PADDING;
+
+        // Grid (Optimized: Hanya gambar grid yang terlihat)
         ctx.strokeStyle = "rgba(0,0,0,0.05)"; ctx.lineWidth = 2;
         ctx.beginPath();
-        for (let x = 0; x <= WORLD_SIZE; x += 100) { ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_SIZE); }
-        for (let y = 0; y <= WORLD_SIZE; y += 100) { ctx.moveTo(0, y); ctx.lineTo(WORLD_SIZE, y); }
+        // Snap grid ke kelipatan 100 terdekat
+        const startGridX = Math.max(0, Math.floor(viewLeft / 100) * 100);
+        const endGridX = Math.min(WORLD_SIZE, Math.ceil(viewRight / 100) * 100);
+        const startGridY = Math.max(0, Math.floor(viewTop / 100) * 100);
+        const endGridY = Math.min(WORLD_SIZE, Math.ceil(viewBottom / 100) * 100);
+
+        for (let x = startGridX; x <= endGridX; x += 100) { ctx.moveTo(x, 0); ctx.lineTo(x, WORLD_SIZE); }
+        for (let y = startGridY; y <= endGridY; y += 100) { ctx.moveTo(0, y); ctx.lineTo(WORLD_SIZE, y); }
         ctx.stroke();
         
         ctx.strokeStyle = "#f43f5e"; ctx.lineWidth = 20;
         ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
 
         const drawCircle = (obj: GameObject) => {
+            // CULLING CHECK: Jika objek di luar layar, JANGAN GAMBAR
+            // Ini optimasi terbesar untuk performa di HP
+            if (obj.x + obj.r < viewLeft || 
+                obj.x - obj.r > viewRight || 
+                obj.y + obj.r < viewTop || 
+                obj.y - obj.r > viewBottom) {
+                return;
+            }
+
             ctx.beginPath();
             ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2);
             ctx.fillStyle = obj.color;
