@@ -2,7 +2,7 @@
 
 import { useState, useEffect, memo, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight, Hand, CircleDot, Gift, Play as PlayIcon, Pause, SkipForward, SkipBack, Music, Volume2, VolumeX, Loader2 } from "lucide-react"; 
+import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight, Hand, CircleDot, Gift, Play as PlayIcon, Pause, SkipForward, SkipBack, Music, Volume2, VolumeX, Loader2, Smartphone } from "lucide-react"; 
 import { supabase } from "@/lib/supabaseClient";
 import FlappyBirdGame from "@/components/FlappyBirdGame"; 
 import TicTacToeGame from "@/components/TicTacToeGame";
@@ -192,7 +192,6 @@ const BirthdayTimer = ({ title, targetDate, targetMonth, imgSrc, reverse = false
       let currentYear = now.getFullYear();
       let bday = new Date(currentYear, targetMonth - 1, targetDate);
 
-      // Jika ultah sudah lewat tahun ini, hitung untuk tahun depan
       if (now.getTime() > bday.getTime() && now.getDate() !== targetDate) {
         bday = new Date(currentYear + 1, targetMonth - 1, targetDate);
       } else if (now.getDate() === targetDate && now.getMonth() === targetMonth - 1) {
@@ -237,7 +236,6 @@ const BirthdayTimer = ({ title, targetDate, targetMonth, imgSrc, reverse = false
   )
 };
 
-// --- VIEW KHUSUS ULTAH KITA ---
 const BirthdayView = () => (
   <div className="w-full max-w-md flex flex-col gap-5 p-2 animate-in fade-in zoom-in">
       <div className="text-center mb-2">
@@ -650,9 +648,6 @@ export default function DashboardPage() {
     if (selectedGame === "tictactoe") {
         return <TicTacToeGame onBack={() => setSelectedGame(null)} />;
     }
-    if (selectedGame === "ayangio") {
-        return <AyangIoGame onBack={() => setSelectedGame(null)} />;
-    }
     if (selectedGame === "chess") {
         return <ChessGame onBack={() => setSelectedGame(null)} />;
     }
@@ -696,9 +691,26 @@ export default function DashboardPage() {
     );
   };
 
+  // --- RETURN UTAMA ---
+  // JIKA GAME AYANG IO DIPILIH, RENDER FULLSCREEN LEPAS DARI DASHBOARD
+  if (selectedGame === 'ayangio') {
+      return (
+        <div className="fixed inset-0 z-[9999] bg-white overflow-hidden flex flex-col justify-center items-center">
+            {/* Warning Rotate HP */}
+            <div className="absolute top-4 left-0 right-0 z-50 flex justify-center pointer-events-none md:hidden opacity-70">
+                <div className="bg-black/50 text-white px-4 py-1 rounded-full text-xs flex items-center gap-2">
+                    <Smartphone size={14} className="animate-pulse"/> Mode Landscape Lebih Seru!
+                </div>
+            </div>
+            <AyangIoGame onBack={() => setSelectedGame(null)} />
+        </div>
+      );
+  }
+
+  // JIKA TIDAK, RENDER DASHBOARD BIASA
   return (
     <main className="fixed inset-0 bg-gradient-to-br from-pink-400 to-red-300 font-sans text-slate-800 overflow-hidden" onClick={handleFirstInteraction}>
-      {activeTab === 'home' && <BackgroundHearts />}
+      {activeTab === 'home' && !selectedGame && <BackgroundHearts />}
       
       <AnimatePresence>
         {wrongGuessAlert && (
@@ -779,7 +791,7 @@ export default function DashboardPage() {
                     ))}
                 </div>
 
-                {/* Form Tambah Lagu (DENGAN INPUT FILE MP3) */}
+                {/* Form Tambah Lagu */}
                 <AnimatePresence>
                     {showAddSong && (
                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
@@ -818,6 +830,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="w-full h-full flex flex-col items-center justify-start pt-4 pb-24 md:pb-4 md:justify-center px-4">
+        
         <div className="md:hidden absolute top-4 left-6 z-10 flex items-center gap-2">
             <div className="bg-white/20 backdrop-blur-md p-1.5 rounded-full"><Heart size={16} fill="white" className="text-white"/></div>
             <span className="font-bold text-white text-lg tracking-wide font-valentine">Rere Sayang</span>
@@ -845,8 +858,16 @@ export default function DashboardPage() {
                 {activeTab === "home" && (
                     <div className="h-full flex flex-col items-center justify-center p-6 text-center">
                         <AnimatePresence mode="wait">
+                            
+                            {/* STEP 0: TOMBOL AWAL */}
                             {surpriseStep === 0 && (
-                                <motion.div key="step0" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, y: -20 }} className="flex flex-col items-center">
+                                <motion.div 
+                                    key="step0"
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    className="flex flex-col items-center"
+                                >
                                     <h2 className="text-4xl md:text-6xl font-bold text-pink-600 mb-4 font-valentine drop-shadow-sm">Kamu Manis Sayang...</h2>
                                     <p className="text-gray-500 mb-8 text-base md:text-lg max-w-xs md:max-w-none mx-auto">Jangan pencet tombol abu-abu yaaa 😡</p>
                                     <div className="flex flex-col md:flex-row items-center gap-4 relative w-full max-w-md mx-auto">
@@ -856,66 +877,221 @@ export default function DashboardPage() {
                                 </motion.div>
                             )}
 
-                            {surpriseStep === 1 && (<motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-md mx-auto"><Typewriter text="Hehehe kamu ngaku manis ya sayanggg... 🤭" speed={80} delayAfter={2000} onComplete={() => setSurpriseStep(2)} className="text-2xl md:text-4xl font-bold text-gray-700" /></motion.div>)}
-                            {surpriseStep === 2 && (<motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-md mx-auto"><Typewriter text="Iya kok sayang, kamu emang maniss banget! ❤️" speed={80} delayAfter={2000} onComplete={() => setSurpriseStep(3)} className="text-3xl md:text-5xl text-pink-600 font-valentine" /></motion.div>)}
+                            {/* STEP 1-2: TYPEWRITER */}
+                            {surpriseStep === 1 && (
+                                <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-md mx-auto">
+                                    <Typewriter text="Hehehe kamu ngaku manis ya sayanggg... 🤭" speed={80} delayAfter={2000} onComplete={() => setSurpriseStep(2)} className="text-2xl md:text-4xl font-bold text-gray-700" />
+                                </motion.div>
+                            )}
+                            {surpriseStep === 2 && (
+                                <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="max-w-md mx-auto">
+                                    <Typewriter text="Iya kok sayang, kamu emang maniss banget! ❤️" speed={80} delayAfter={2000} onComplete={() => setSurpriseStep(3)} className="text-3xl md:text-5xl text-pink-600 font-valentine" />
+                                </motion.div>
+                            )}
 
+                            {/* STEP 3: BUKTI FOTO */}
                             {surpriseStep === 3 && (
-                                <motion.div key="step3" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8 }} transition={{ duration: 0.8 }} className="flex flex-col items-center justify-center h-full w-full max-w-lg mx-auto">
+                                <motion.div 
+                                    key="step3"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.8 }}
+                                    transition={{ duration: 0.8 }}
+                                    className="flex flex-col items-center justify-center h-full w-full max-w-lg mx-auto"
+                                >
                                     <Typewriter text="Ini buktinya 👇" speed={100} delayAfter={0} className="text-gray-500 mb-2 block" />
-                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, 10, 0] }} transition={{ delay: 1.5, repeat: Infinity, duration: 1.5 }}><ArrowDown className="text-pink-400 mb-4" size={32}/></motion.div>
+                                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, 10, 0] }} transition={{ delay: 1.5, repeat: Infinity, duration: 1.5 }}>
+                                        <ArrowDown className="text-pink-400 mb-4" size={32}/>
+                                    </motion.div>
                                     <motion.div initial={{ opacity: 0, scale: 0.8, rotate: -5 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ delay: 2, type: "spring" }} className="relative p-2 bg-white shadow-xl rotate-2 border border-gray-100 rounded-xl mb-6">
                                         <img src="/AyangkuManis.png" alt="Foto Kamu" className="w-48 h-48 md:w-64 md:h-64 object-cover rounded-lg" />
                                         <div className="absolute -bottom-5 right-0 rotate-12"><span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded shadow-sm font-bold border border-yellow-200">Manis bgt kan?</span></div>
                                     </motion.div>
-                                    <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3 }} onClick={() => setSurpriseStep(4)} className="bg-pink-500 text-white px-6 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2">Next <ArrowRight size={18}/></motion.button>
+                                    <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3 }} onClick={() => setSurpriseStep(4)} className="bg-pink-500 text-white px-6 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2">
+                                        Next <ArrowRight size={18}/>
+                                    </motion.button>
                                 </motion.div>
                             )}
 
+                            {/* STEP 4: TEBAK MAKANAN */}
                             {surpriseStep === 4 && (
-                                <motion.div key="step4" className="flex flex-col items-center justify-center h-full w-full">
-                                    <motion.h3 initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-2xl md:text-3xl font-bold text-pink-600 mb-10 z-20 text-center px-4">Si manis ini suka apa ya?? 🤔</motion.h3>
+                                <motion.div 
+                                    key="step4"
+                                    className="flex flex-col items-center justify-center h-full w-full"
+                                >
+                                    <motion.h3 
+                                        initial={{ y: -50, opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        className="text-2xl md:text-3xl font-bold text-pink-600 mb-10 z-20 text-center px-4"
+                                    >
+                                        Si manis ini suka apa ya?? 🤔
+                                    </motion.h3>
+
                                     <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center">
-                                        <motion.div initial={{ scale: 1.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl overflow-hidden z-10"><img src="/AyangkuManis.png" alt="Foto Pacar" className="w-full h-full object-cover" /></motion.div>
-                                        <motion.button initial={{ scale: 0, x: -50, y: -50 }} animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }} transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" } }} whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }} onClick={() => handleFoodClick(false)} className="absolute -top-4 -left-4 md:-top-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"><img src="/Seblak.jpeg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Seblak" /><span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Seblak</span></motion.button>
-                                        <motion.button initial={{ scale: 0, x: 50, y: -50 }} animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }} transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.2, ease: "easeInOut" } }} whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }} onClick={() => handleFoodClick(false)} className="absolute -top-4 -right-4 md:-top-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"><img src="/Rujak.jpeg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Rujak" /><span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Rujak</span></motion.button>
-                                        <motion.button initial={{ scale: 0, x: -50, y: 50 }} animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }} transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.5, ease: "easeInOut" } }} whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }} onClick={() => handleFoodClick(false)} className="absolute -bottom-4 -left-4 md:-bottom-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"><img src="https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=150&q=80" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Nanas" /><span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Nanas</span></motion.button>
-                                        <motion.button initial={{ scale: 0, x: 50, y: 50 }} animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }} transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.1, ease: "easeInOut" } }} whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }} onClick={() => handleFoodClick(true)} className="absolute -bottom-4 -right-4 md:-bottom-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg border-2 border-transparent hover:border-green-400 z-20"><img src="/Matcha.jpg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Matcha" /><span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Matcha</span></motion.button>
+                                        <motion.div
+                                            initial={{ scale: 1.5, opacity: 0 }}
+                                            animate={{ scale: 1, opacity: 1 }}
+                                            className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl overflow-hidden z-10"
+                                        >
+                                            <img src="/AyangkuManis.png" alt="Foto Pacar" className="w-full h-full object-cover" />
+                                        </motion.div>
+
+                                        {/* MAKANAN BUTTONS */}
+                                        <motion.button
+                                            initial={{ scale: 0, x: -50, y: -50 }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }}
+                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" } }}
+                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
+                                            onClick={() => handleFoodClick(false)}
+                                            className="absolute -top-4 -left-4 md:-top-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
+                                        >
+                                            <img src="/Seblak.jpeg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Seblak" />
+                                            <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Seblak</span>
+                                        </motion.button>
+
+                                        <motion.button
+                                            initial={{ scale: 0, x: 50, y: -50 }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }}
+                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.2, ease: "easeInOut" } }}
+                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
+                                            onClick={() => handleFoodClick(false)}
+                                            className="absolute -top-4 -right-4 md:-top-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
+                                        >
+                                            <img src="/Rujak.jpeg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Rujak" />
+                                            <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Rujak</span>
+                                        </motion.button>
+
+                                        <motion.button
+                                            initial={{ scale: 0, x: -50, y: 50 }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [-3, 3, -3] }}
+                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.5, ease: "easeInOut" } }}
+                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
+                                            onClick={() => handleFoodClick(false)}
+                                            className="absolute -bottom-4 -left-4 md:-bottom-6 md:-left-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg z-20"
+                                        >
+                                            <img src="https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=150&q=80" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Nanas" />
+                                            <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Nanas</span>
+                                        </motion.button>
+
+                                        <motion.button
+                                            initial={{ scale: 0, x: 50, y: 50 }}
+                                            animate={{ scale: 1, x: 0, y: 0, rotate: [3, -3, 3] }}
+                                            transition={{ default: { duration: 0.5 }, rotate: { repeat: Infinity, duration: 2.1, ease: "easeInOut" } }}
+                                            whileHover={{ scale: 1.2 }} whileTap={{ scale: 1.2 }}
+                                            onClick={() => handleFoodClick(true)}
+                                            className="absolute -bottom-4 -right-4 md:-bottom-6 md:-right-6 pointer-events-auto bg-white p-2 rounded-xl shadow-lg border-2 border-transparent hover:border-green-400 z-20"
+                                        >
+                                            <img src="/Matcha.jpg" className="w-16 h-16 md:w-20 md:h-20 object-cover rounded-lg" alt="Matcha" />
+                                            <span className="text-[10px] md:text-xs font-bold text-gray-600 mt-1 block">Matcha</span>
+                                        </motion.button>
                                     </div>
                                 </motion.div>
                             )}
 
+                            {/* STEP 5: SUCCESS & LANJUT BUTTON */}
                             {surpriseStep === 5 && (
-                                <motion.div key="step5" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="flex flex-col items-center justify-center h-full text-center p-6">
-                                    <div className="bg-green-100 p-4 rounded-full mb-6"><CheckCircle size={64} className="text-green-500" /></div>
+                                <motion.div 
+                                    key="step5"
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ opacity: 0, scale: 0.8 }}
+                                    className="flex flex-col items-center justify-center h-full text-center p-6"
+                                >
+                                    <div className="bg-green-100 p-4 rounded-full mb-6">
+                                        <CheckCircle size={64} className="text-green-500" />
+                                    </div>
                                     <h2 className="text-3xl font-bold text-gray-800 mb-2">Yeyyy! Akhirnya sayangkuu manuttttt! 🎉</h2>
                                     <p className="text-gray-500 mb-8">Kamu emang kesayangan aku yang paling manisss!</p>
                                     <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MDJ9IbxxvDUQM/giphy.gif" alt="Cute Cat" className="w-48 rounded-xl shadow-lg mb-6" />
-                                    <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setSurpriseStep(6)} className="bg-pink-500 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2 text-lg">Lanjut sayang ❤️ <ArrowRight size={20}/></motion.button>
+                                    
+                                    <motion.button 
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => setSurpriseStep(6)} 
+                                        className="bg-pink-500 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2 text-lg"
+                                    >
+                                        Lanjut sayang ❤️ <ArrowRight size={20}/>
+                                    </motion.button>
                                 </motion.div>
                             )}
 
+                            {/* STEP 6: CUBIT PIPI (NEW FEATURE) */}
                             {surpriseStep === 6 && (
-                                <motion.div key="step6" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center justify-center h-full text-center p-6">
-                                    <h2 className="text-2xl md:text-3xl font-bold text-pink-600 mb-2 font-valentine">Cubit Pipi Karet! 🤏</h2>
-                                    <p className="text-gray-500 mb-8 text-sm max-w-xs mx-auto">Tarik bagian <b>Pipi Kanan</b> buat nyubit! (Yang kiri aku paku biar gak lari 😝)</p>
+                                <motion.div 
+                                    key="step6"
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    className="flex flex-col items-center justify-center h-full text-center p-6"
+                                >
+                                    <h2 className="text-2xl md:text-3xl font-bold text-pink-600 mb-2 font-valentine">
+                                        Cubit Pipi Karet! 🤏
+                                    </h2>
+                                    <p className="text-gray-500 mb-8 text-sm max-w-xs mx-auto">
+                                        Tarik bagian <b>Pipi Kanan</b> buat nyubit! (Yang kiri aku paku biar gak lari 😝)
+                                    </p>
+
+                                    {/* AREA CUBIT (ELASTIC DRAG) */}
                                     <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center mb-8">
-                                        <motion.div style={{ x, y, scaleX, rotate, transformOrigin: "20% 50%" }} drag dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }} dragElastic={0.15} whileTap={{ cursor: "grabbing" }} onPointerDown={handlePinchStart} className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-white shadow-2xl overflow-hidden cursor-grab active:cursor-grabbing relative z-10 bg-pink-200 touch-none">
-                                            <img src="/FotoCubit.jpeg" alt="Foto Cubit" className="w-full h-full object-cover pointer-events-none" />
-                                            <motion.div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center opacity-0 active:opacity-100 transition-opacity"><span className="bg-white text-pink-600 px-3 py-1 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">Melarrr! 🤣</span></motion.div>
+                                        <motion.div
+                                            style={{ 
+                                                x, 
+                                                y, 
+                                                scaleX, // Ini yang bikin efek MELAR (Stretch)
+                                                rotate,
+                                                transformOrigin: "20% 50%" // PAKU DI KIRI (Telinga Kiri)
+                                            }}
+                                            drag
+                                            dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }} 
+                                            dragElastic={0.15} // Makin kecil makin "berat" karetnya
+                                            whileTap={{ cursor: "grabbing" }}
+                                            onPointerDown={handlePinchStart}
+                                            className="w-48 h-48 md:w-64 md:h-64 rounded-full border-4 border-white shadow-2xl overflow-hidden cursor-grab active:cursor-grabbing relative z-10 bg-pink-200 touch-none"
+                                        >
+                                            <img 
+                                                src="/FotoCubit.jpeg" 
+                                                alt="Foto Cubit" 
+                                                className="w-full h-full object-cover pointer-events-none" 
+                                            />
+                                            
+                                            {/* Text Bubble saat dicubit */}
+                                            <motion.div 
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center opacity-0 active:opacity-100 transition-opacity"
+                                            >
+                                                <span className="bg-white text-pink-600 px-3 py-1 rounded-full text-xs font-bold shadow-lg whitespace-nowrap">
+                                                    Melarrr! 🤣
+                                                </span>
+                                            </motion.div>
                                         </motion.div>
-                                        <motion.div animate={{ x: [5, 20, 5], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1.5 }} className="absolute top-1/2 right-0 md:right-4 transform -translate-y-1/2 text-pink-400 pointer-events-none"><Hand size={32} className="rotate-90"/></motion.div>
+                                        
+                                        {/* Icon Tangan Petunjuk (Di Pipi Kanan) */}
+                                        <motion.div 
+                                            animate={{ x: [5, 20, 5], opacity: [0.5, 1, 0.5] }}
+                                            transition={{ repeat: Infinity, duration: 1.5 }}
+                                            className="absolute top-1/2 right-0 md:right-4 transform -translate-y-1/2 text-pink-400 pointer-events-none"
+                                        >
+                                            <Hand size={32} className="rotate-90"/>
+                                        </motion.div>
                                     </div>
-                                    <div className="bg-white/50 px-4 py-2 rounded-lg border border-pink-100 mb-6"><span className="text-pink-500 font-bold">{pinchCount}</span> <span className="text-gray-500 text-sm">kali ditarik 🤕</span></div>
-                                    <button onClick={() => setSurpriseStep(0)} className="text-gray-400 hover:text-pink-500 hover:underline text-sm flex items-center gap-1 transition-colors"><RotateCcw size={14}/> Udahan ah, kasian</button>
+                                    
+                                    <div className="bg-white/50 px-4 py-2 rounded-lg border border-pink-100 mb-6">
+                                        <span className="text-pink-500 font-bold">{pinchCount}</span> <span className="text-gray-500 text-sm">kali ditarik 🤕</span>
+                                    </div>
+
+                                    <button onClick={() => setSurpriseStep(0)} className="text-gray-400 hover:text-pink-500 hover:underline text-sm flex items-center gap-1 transition-colors">
+                                        <RotateCcw size={14}/> Udahan ah, kasian
+                                    </button>
                                 </motion.div>
                             )}
+
                         </AnimatePresence>
                     </div>
-                )}
+                  )}
 
-                {activeTab === "game" && renderGameContent()}
-                {activeTab === "calendar" && renderCalendar()}
-                {activeTab === "notes" && (
+                  {activeTab === "game" && renderGameContent()}
+
+                  {activeTab === "calendar" && renderCalendar()}
+
+                  {activeTab === "notes" && (
                     <div className="relative w-full h-full bg-orange-50 flex flex-col">
                         <div className="flex-1 w-full h-full overflow-auto relative touch-pan-x touch-pan-y" ref={constraintsRef}>
                             <div className="absolute inset-0 opacity-10 pointer-events-none sticky top-0 left-0 min-w-full min-h-full" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
@@ -955,31 +1131,35 @@ export default function DashboardPage() {
                             </button>
                         </div>
                     </div>
-                )}
-           </div>
-        </div>
+                  )}
+             </div>
+          </div>
 
-        <div className="md:hidden fixed bottom-6 left-6 right-6 h-16 bg-white/90 backdrop-blur-lg rounded-full shadow-2xl border border-white/50 z-50 flex items-center justify-between px-6">
-            {[
-                { id: "home", icon: Home },
-                { id: "game", icon: Gamepad2 },
-                { id: "calendar", icon: Calendar },
-                { id: "notes", icon: StickyNote },
-            ].map((item) => {
-                const isActive = activeTab === item.id;
-                return (
-                    <button 
-                        key={item.id} 
-                        onClick={() => setActiveTab(item.id)}
-                        className={`relative flex flex-col items-center justify-center w-10 h-10 transition-all duration-300 ${isActive ? '-translate-y-1' : 'opacity-50 hover:opacity-100'}`}
-                    >
-                        <div className={`absolute inset-0 bg-pink-100 rounded-full scale-0 transition-transform ${isActive ? 'scale-100' : ''}`}></div>
-                        <item.icon size={22} className={`relative z-10 ${isActive ? 'text-pink-600' : 'text-gray-600'}`} />
-                        {isActive && <span className="absolute -bottom-5 w-1 h-1 bg-pink-500 rounded-full"></span>}
-                    </button>
-                )
-            })}
-        </div>
+        {/* BOTTOM NAV BAR (HIDDEN WHEN GAME IS ACTIVE) */}
+        {!selectedGame && (
+          <div className="md:hidden fixed bottom-6 left-6 right-6 h-16 bg-white/90 backdrop-blur-lg rounded-full shadow-2xl border border-white/50 z-50 flex items-center justify-between px-6">
+              {[
+                  { id: "home", icon: Home },
+                  { id: "game", icon: Gamepad2 },
+                  { id: "calendar", icon: Calendar },
+                  { id: "notes", icon: StickyNote }
+              ].map((item) => {
+                  const isActive = activeTab === item.id;
+                  return (
+                      <button 
+                          key={item.id} 
+                          onClick={() => setActiveTab(item.id)}
+                          className={`relative flex flex-col items-center justify-center w-10 h-10 transition-all duration-300 ${isActive ? '-translate-y-1' : 'opacity-50 hover:opacity-100'}`}
+                      >
+                          <div className={`absolute inset-0 bg-pink-100 rounded-full scale-0 transition-transform ${isActive ? 'scale-100' : ''}`}></div>
+                          <item.icon size={22} className={`relative z-10 ${isActive ? 'text-pink-600' : 'text-gray-600'}`} />
+                          {isActive && <span className="absolute -bottom-5 w-1 h-1 bg-pink-500 rounded-full"></span>}
+                      </button>
+                  )
+              })}
+          </div>
+        )}
+
       </div>
     </main>
   );

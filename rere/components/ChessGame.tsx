@@ -4,7 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Chess } from "chess.js";
 import { supabase } from "@/lib/supabaseClient";
-import { ArrowLeft, Users, Plus, Play, Copy, CheckCircle, Bot, Swords, AlertTriangle, Heart, RotateCcw } from "lucide-react";
+import { 
+  ArrowLeft, Users, Plus, Play, Copy, CheckCircle, 
+  Bot, Swords, AlertTriangle, Heart, RotateCcw, 
+  Wifi, WifiOff, Loader2, RefreshCw
+} from "lucide-react";
 
 // --- GAMBAR BIDAK CATUR SPESIAL VALENTINE ---
 const PIECE_IMAGES: Record<string, string> = {
@@ -12,21 +16,29 @@ const PIECE_IMAGES: Record<string, string> = {
   'wn': 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
   'wb': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
   'wr': 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
-  'wq': '/MyQueen.jpeg', // RATU PUTIH = AYANG
-  'wk': '/King.jpeg',    // RAJA PUTIH = KAMU
+  'wq': '/MyQueen.jpeg', 
+  'wk': '/King.jpeg',    
   'bp': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
   'bn': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
   'bb': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
   'br': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
-  'bq': '/MyQueen.jpeg', // RATU HITAM = AYANG
-  'bk': '/King.jpeg',    // RAJA HITAM = KAMU
+  'bq': '/MyQueen.jpeg', 
+  'bk': '/King.jpeg',    
 };
 
-// --- SILUET MASKING UNTUK RAJA DAN RATU ---
-const MASK_QUEEN = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12zM9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-21.5-1.5-27 0z"/></svg>')`;
-const MASK_KING = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 45 45"><path d="M22.5 11.63V6M20 8h5M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10.5 5 10.5V37zM11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></svg>')`;
-
-// --- LOGIKA KECERDASAN BUATAN (BOT) ---
+// --- PST (Positional Square Tables) untuk Bot ---
+const pst_pawn = [
+    [0,  0,  0,  0,  0,  0,  0,  0], [50, 50, 50, 50, 50, 50, 50, 50],
+    [10, 10, 20, 30, 30, 20, 10, 10], [5,  5, 10, 25, 25, 10,  5,  5],
+    [0,  0,  0, 20, 20,  0,  0,  0], [5, -5,-10,  0,  0,-10, -5,  5],
+    [5, 10, 10,-20,-20, 10, 10,  5], [0,  0,  0,  0,  0,  0,  0,  0]
+];
+const pst_knight = [
+    [-50,-40,-30,-30,-30,-30,-40,-50], [-40,-20,  0,  0,  0,  0,-20,-40],
+    [-30,  0, 10, 15, 15, 10,  0,-30], [-30,  5, 15, 20, 20, 15,  5,-30],
+    [-30,  0, 15, 20, 20, 15,  0,-30], [-30,  5, 10, 15, 15, 10,  5,-30],
+    [-40,-20,  0,  5,  5,  0,-20,-40], [-50,-40,-30,-30,-30,-30,-40,-50]
+];
 const pieceValues: Record<string, number> = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
 
 const evaluateBoard = (chessInstance: Chess) => {
@@ -34,103 +46,171 @@ const evaluateBoard = (chessInstance: Chess) => {
   const board = chessInstance.board();
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
-      const piece = board[r][c];
-      if (piece) {
-        let val = pieceValues[piece.type] || 0;
-        if (piece.type !== 'k' && piece.type !== 'r') {
-          const centerDist = Math.abs(3.5 - r) + Math.abs(3.5 - c);
-          val += (7 - centerDist) * 5; 
-        }
-        if (piece.type === 'p') {
-          if (piece.color === 'w') val += (7 - r) * 4; 
-          if (piece.color === 'b') val += r * 4;       
-        }
-        if (piece.type === 'k') {
-          const centerDist = Math.abs(3.5 - r) + Math.abs(3.5 - c);
-          val -= (7 - centerDist) * 5; 
-        }
-        totalEvaluation += piece.color === 'w' ? val : -val;
+      const p = board[r][c];
+      if (p) {
+        let val = pieceValues[p.type];
+        if (p.type === 'p') val += (p.color === 'w' ? pst_pawn[r][c] : pst_pawn[7-r][c]);
+        if (p.type === 'n') val += (p.color === 'w' ? pst_knight[r][c] : pst_knight[7-r][c]);
+        totalEvaluation += p.color === 'w' ? val : -val;
       }
     }
   }
   return totalEvaluation;
 };
 
-const minimax = (chessInstance: Chess, depth: number, alpha: number, beta: number, isMaximizingPlayer: boolean): number => {
-  if (depth === 0 || chessInstance.isGameOver()) return evaluateBoard(chessInstance);
-  const moves = chessInstance.moves();
-  if (isMaximizingPlayer) {
-    let bestVal = -Infinity;
-    for (let move of moves) {
-      chessInstance.move(move);
-      bestVal = Math.max(bestVal, minimax(chessInstance, depth - 1, alpha, beta, false));
-      chessInstance.undo();
-      alpha = Math.max(alpha, bestVal);
+// --- MINIMAX ---
+const minimax = (game: Chess, depth: number, alpha: number, beta: number, isMax: boolean): number => {
+  if (depth === 0 || game.isGameOver()) return evaluateBoard(game);
+  const moves = game.moves();
+  if (isMax) {
+    let best = -Infinity;
+    for (const move of moves) {
+      game.move(move);
+      best = Math.max(best, minimax(game, depth - 1, alpha, beta, false));
+      game.undo();
+      alpha = Math.max(alpha, best);
       if (beta <= alpha) break;
     }
-    return bestVal;
+    return best;
   } else {
-    let bestVal = Infinity;
-    for (let move of moves) {
-      chessInstance.move(move);
-      bestVal = Math.min(bestVal, minimax(chessInstance, depth - 1, alpha, beta, true));
-      chessInstance.undo();
-      beta = Math.min(beta, bestVal);
+    let best = Infinity;
+    for (const move of moves) {
+      game.move(move);
+      best = Math.min(best, minimax(game, depth - 1, alpha, beta, true));
+      game.undo();
+      beta = Math.min(beta, best);
       if (beta <= alpha) break;
     }
-    return bestVal;
+    return best;
   }
 };
 
-const getBestMove = (chessInstance: Chess, depth: number, botColor: "w" | "b") => {
-  const moves = chessInstance.moves();
+const getBestMove = (game: Chess, depth: number) => {
+  const moves = game.moves();
   if (moves.length === 0) return null;
-  let bestMoves: string[] = [];
-  let bestVal = botColor === "w" ? -Infinity : Infinity; 
-  for (let move of moves) {
-    chessInstance.move(move);
-    const isMaximizingNext = botColor === "b"; 
-    const boardVal = minimax(chessInstance, depth - 1, -Infinity, Infinity, isMaximizingNext);
-    chessInstance.undo();
-    if (botColor === "w") {
-      if (boardVal > bestVal) { bestVal = boardVal; bestMoves = [move]; }
-      else if (boardVal === bestVal) bestMoves.push(move);
-    } else {
-      if (boardVal < bestVal) { bestVal = boardVal; bestMoves = [move]; }
-      else if (boardVal === bestVal) bestMoves.push(move);
+  const isWhite = game.turn() === 'w';
+  let bestVal = isWhite ? -Infinity : Infinity;
+  let bestMove = moves[0];
+  
+  for (const move of moves) {
+    game.move(move);
+    const val = minimax(game, depth - 1, -Infinity, Infinity, !isWhite);
+    game.undo();
+    if (isWhite ? val > bestVal : val < bestVal) {
+      bestVal = val;
+      bestMove = move;
     }
   }
-  return bestMoves[Math.floor(Math.random() * bestMoves.length)] || moves[0];
+  return bestMove;
 };
 
 export default function ChessGame({ onBack }: { onBack: () => void }) {
   const [game, setGame] = useState(new Chess());
-  const [fen, setFen] = useState(game.fen()); 
+  const [fen, setFen] = useState(game.fen());
   const [roomCode, setRoomCode] = useState("");
   const [inputCode, setInputCode] = useState("");
   const [playerColor, setPlayerColor] = useState<"white" | "black" | null>(null);
   const [status, setStatus] = useState<"menu" | "playing">("menu");
   const [gameMode, setGameMode] = useState<"multiplayer" | "bot" | null>(null);
   const [botDifficulty, setBotDifficulty] = useState<"cupu" | "standar" | "jago">("standar");
-  const [botPlayerColor, setBotPlayerColor] = useState<"white" | "black">("white"); 
-  const [copied, setCopied] = useState(false);
+  const [botPlayerColor, setBotPlayerColor] = useState<"white" | "black">("white");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [isGameOver, setIsGameOver] = useState(false);
   const [gameResultMsg, setGameResultMsg] = useState("");
+  const [copied, setCopied] = useState(false);
+  
+  // -- STATES BARU UNTUK STABILITAS --
+  const [isOnline, setIsOnline] = useState(true);
+  const [isBotThinking, setIsBotThinking] = useState(false);
 
-  // KUNCI MULTIPLAYER: useRef ini bakal menyimpan data FEN terbaru 
-  // tanpa harus me-restart useEffect Supabase!
+  const gameRef = useRef(game);
   const fenRef = useRef(fen);
-  useEffect(() => {
-    fenRef.current = fen;
-  }, [fen]);
+  
+  // Ref untuk timer bot
+  const botTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync Ref
+  useEffect(() => { 
+    fenRef.current = fen; 
+    gameRef.current = game; 
+  }, [fen, game]);
 
   const showError = (msg: string) => {
     setErrorMsg(msg);
-    setTimeout(() => setErrorMsg(null), 3000); 
+    setTimeout(() => setErrorMsg(null), 3000);
   };
 
+  const updateGameLocal = useCallback((newFen: string, updateDb: boolean = false) => {
+    if (newFen === fenRef.current) return;
+
+    try {
+      const newG = new Chess(newFen);
+      setGame(newG);
+      setFen(newFen);
+      
+      if (updateDb && gameMode === "multiplayer" && roomCode) {
+        supabase.from("chess_rooms").update({ fen: newFen }).eq("room_code", roomCode).then(({ error }) => {
+            if (error) setIsOnline(false);
+            else setIsOnline(true);
+        });
+      }
+    } catch (e) { console.error("Invalid FEN:", e); }
+  }, [gameMode, roomCode]);
+
+  // --- 1. POLLING AGRESIF (1 Detik) ---
+  useEffect(() => {
+    if (gameMode !== "multiplayer" || status !== "playing" || !roomCode) return;
+
+    // Fungsi Fetch Manual
+    const fetchLatestState = async () => {
+        const { data, error } = await supabase.from("chess_rooms").select("fen").eq("room_code", roomCode).single();
+        if (!error && data && data.fen !== fenRef.current) {
+            updateGameLocal(data.fen, false);
+            setIsOnline(true);
+        } else if (error) {
+            setIsOnline(false);
+        }
+    };
+
+    // Jalankan segera saat mount
+    fetchLatestState();
+
+    // Jalankan interval setiap 1 detik (sangat cepat)
+    const interval = setInterval(fetchLatestState, 1000);
+
+    // Event listener saat user balik ke tab browser (Force Refresh)
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') fetchLatestState();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+        clearInterval(interval);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [roomCode, status, gameMode, updateGameLocal]);
+
+  // --- 2. MULTIPLAYER REALTIME (UTAMA) ---
+  useEffect(() => {
+    if (!roomCode || status !== "playing" || gameMode !== "multiplayer") return;
+
+    const channel = supabase.channel(`room-${roomCode}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chess_rooms", filter: `room_code=eq.${roomCode}` },
+        (payload) => {
+          const remoteFen = payload.new.fen;
+          if (remoteFen && remoteFen !== fenRef.current) {
+            updateGameLocal(remoteFen, false);
+          }
+        }
+      ).subscribe((status) => {
+        setIsOnline(status === 'SUBSCRIBED');
+      });
+
+    return () => { supabase.removeChannel(channel); };
+  }, [roomCode, status, gameMode, updateGameLocal]);
+
+  // --- GAME OVER CHECK ---
   useEffect(() => {
     if (status !== "playing") return;
     if (game.isGameOver()) {
@@ -138,102 +218,72 @@ export default function ChessGame({ onBack }: { onBack: () => void }) {
       if (game.isCheckmate()) {
         const winner = game.turn() === "w" ? "Peach" : "Putih";
         setGameResultMsg(`SKAKMAT! Tim ${winner} Menang! 🎉`);
-      } else if (game.isDraw() || game.isStalemate()) {
-        setGameResultMsg("Seri! Pertandingan imbang 🤝");
       } else {
-        setGameResultMsg("Game Over!");
+        setGameResultMsg("Permainan Seri! 🤝");
       }
     } else {
       setIsGameOver(false);
     }
   }, [fen, status, game]);
 
-  // --- MULTIPLAYER SYNC (DIJAMIN LANCAR) ---
+  // --- BOT LOGIC ---
   useEffect(() => {
-    if (!roomCode || status !== "playing" || gameMode !== "multiplayer") return;
-    
-    const channel = supabase
-      .channel(`room-${roomCode}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chess_rooms", filter: `room_code=eq.${roomCode}` },
-        (payload) => {
-          const newFen = payload.new.fen;
-          // Cek menggunakan FEN REF, bukan State FEN!
-          // Supaya tidak terjadi looping dan miss connection
-          if (newFen && newFen !== fenRef.current) {
-            try {
-              const newGameInstance = new Chess(newFen);
-              setGame(newGameInstance);
-              setFen(newFen);
-            } catch (err) { }
-          }
-        }
-      ).subscribe();
-      
-    // Di sini kita HAPUS `game.fen()` dari dependency array!
-    // Ini yg bikin error sebelumnya! Sekarang channelnya hidup terus!
-    return () => { supabase.removeChannel(channel); };
-  }, [roomCode, status, gameMode]); 
+    return () => { if (botTimerRef.current) clearTimeout(botTimerRef.current); };
+  }, []);
 
-  // --- BOT SYNC ---
   useEffect(() => {
     if (status !== "playing" || gameMode !== "bot" || game.isGameOver()) return;
+    
     const currentTurnColor = game.turn() === "w" ? "white" : "black";
-    if (currentTurnColor !== playerColor) {
-      const timer = setTimeout(() => {
-        const gameCopy = new Chess(game.fen());
-        const possibleMoves = gameCopy.moves();
-        if (possibleMoves.length === 0) return;
-        let selectedMove;
+    const isBotTurn = currentTurnColor !== playerColor;
+
+    if (!isBotTurn || isBotThinking) return;
+
+    setIsBotThinking(true);
+
+    botTimerRef.current = setTimeout(() => {
+        const gameCopy = new Chess(fenRef.current);
+        const depth = botDifficulty === "jago" ? 3 : (botDifficulty === "standar" ? 2 : 1);
+        let move;
         try {
-          if (botDifficulty === "cupu") {
-            selectedMove = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
-          } else {
-            const depth = botDifficulty === "jago" ? 4 : 3;
-            selectedMove = getBestMove(gameCopy, depth, gameCopy.turn());
-          }
-          if (selectedMove) {
-            gameCopy.move(selectedMove);
-            setGame(gameCopy);
-            setFen(gameCopy.fen());
-          }
-        } catch (err) {
-          selectedMove = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
-          gameCopy.move(selectedMove);
+            move = botDifficulty === "cupu" 
+              ? gameCopy.moves()[Math.floor(Math.random() * gameCopy.moves().length)]
+              : getBestMove(gameCopy, depth);
+        } catch (e) {
+            const moves = gameCopy.moves();
+            move = moves[Math.floor(Math.random() * moves.length)];
+        }
+        
+        if (move) {
+          gameCopy.move(move);
           setGame(gameCopy);
           setFen(gameCopy.fen());
         }
-      }, 500); 
-      return () => clearTimeout(timer);
-    }
-  }, [fen, status, gameMode, botDifficulty, playerColor]);
+        setIsBotThinking(false);
+    }, 500); 
 
-  const resetGame = () => {
-    const newG = new Chess();
-    setGame(newG);
-    setFen(newG.fen());
-    setSelectedSquare(null);
-    setIsGameOver(false);
-    if (gameMode === "multiplayer") {
-      supabase.from("chess_rooms").update({ fen: newG.fen() }).eq("room_code", roomCode).then();
-    }
+  }, [fen, status, gameMode, botDifficulty, playerColor, isBotThinking]); 
+
+  // --- ROOM SETUP ---
+  const cleanUpOldRooms = async () => {
+      const tenHoursAgo = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString();
+      await supabase.from("chess_rooms").delete().lt("created_at", tenHoursAgo);
   };
 
   const createRoom = async () => {
+    await cleanUpOldRooms();
     const code = Math.random().toString(36).substring(2, 8).toUpperCase(); 
-    const newGame = new Chess();
-    setGame(newGame);
-    setFen(newGame.fen());
-    const { error } = await supabase.from("chess_rooms").insert([{ room_code: code, fen: newGame.fen() }]);
+    const newG = new Chess();
+    const { error } = await supabase.from("chess_rooms").insert([{ room_code: code, fen: newG.fen() }]);
+    
     if (!error) {
       setRoomCode(code);
       setGameMode("multiplayer");
       setPlayerColor("white");
       setStatus("playing");
-      setSelectedSquare(null);
-      setIsGameOver(false);
-    } else {
-      showError("Gagal bikin room!");
-    }
+      setGame(newG);
+      setFen(newG.fen());
+    } else showError("Gagal bikin room! Cek koneksi.");
   };
 
   const joinRoom = async () => {
@@ -243,19 +293,9 @@ export default function ChessGame({ onBack }: { onBack: () => void }) {
       setRoomCode(inputCode);
       setGameMode("multiplayer");
       setPlayerColor("black");
-      setSelectedSquare(null);
-      setIsGameOver(false);
-      try {
-        const newG = new Chess(data.fen);
-        setGame(newG);
-        setFen(newG.fen());
-      } catch (e) {
-        setGame(new Chess());
-      }
+      updateGameLocal(data.fen);
       setStatus("playing");
-    } else {
-      showError("Room tidak ditemukan.");
-    }
+    } else showError("Room tidak ditemukan / Kadaluarsa.");
   };
 
   const startBotMatch = () => {
@@ -264,55 +304,54 @@ export default function ChessGame({ onBack }: { onBack: () => void }) {
     setFen(newG.fen());
     setGameMode("bot");
     setPlayerColor(botPlayerColor); 
-    setSelectedSquare(null);
-    setIsGameOver(false);
     setStatus("playing");
+    setIsBotThinking(false);
   };
 
   const handleSquareClick = (squareId: string) => {
-    if (isGameOver) return;
-    const currentTurnChar = game.turn(); 
+    if (isGameOver || isBotThinking) return; 
+    
     const playerTurnChar = playerColor === "white" ? "w" : "b";
-
-    if (currentTurnChar !== playerTurnChar) {
+    
+    if (gameMode === "multiplayer" && game.turn() !== playerTurnChar) {
       showError("Sabar sayang! Belum giliran kamu jalan 😡");
       return;
     }
+    
+    if (gameMode === "bot" && game.turn() !== (playerColor === "white" ? "w" : "b")) return; 
 
     if (!selectedSquare) {
       const piece = game.get(squareId as any);
-      if (piece && piece.color === playerTurnChar) {
-        setSelectedSquare(squareId); 
-      }
+      if (piece && piece.color === game.turn()) setSelectedSquare(squareId);
       return;
     }
 
     const clickedPiece = game.get(squareId as any);
-    if (clickedPiece && clickedPiece.color === playerTurnChar) {
+    if (clickedPiece && clickedPiece.color === game.turn()) {
       setSelectedSquare(squareId);
       return;
     }
 
-    const gameCopy = new Chess(game.fen());
-    let move = null;
     try {
-      move = gameCopy.move({ from: selectedSquare, to: squareId, promotion: 'q' });
-    } catch (e) {
-      try { move = gameCopy.move({ from: selectedSquare, to: squareId }); } catch (e2) {}
-    }
-
-    if (move) {
-      setGame(gameCopy);
-      setFen(gameCopy.fen());
-      setSelectedSquare(null);
+      const moveGame = new Chess(game.fen());
+      const move = moveGame.move({ from: selectedSquare, to: squareId, promotion: 'q' });
       
-      if (gameMode === "multiplayer") {
-        supabase.from("chess_rooms").update({ fen: gameCopy.fen() }).eq("room_code", roomCode).then();
+      if (move) {
+        updateGameLocal(moveGame.fen(), true);
+        setSelectedSquare(null);
       }
-    } else {
+    } catch (e) {
       showError("Gerakan dilarang sayang! 🤨");
       setSelectedSquare(null);
     }
+  };
+
+  const resetGame = () => {
+    const newG = new Chess();
+    updateGameLocal(newG.fen(), true);
+    setIsGameOver(false);
+    setSelectedSquare(null);
+    setIsBotThinking(false);
   };
 
   const renderCustomBoard = () => {
@@ -321,14 +360,13 @@ export default function ChessGame({ onBack }: { onBack: () => void }) {
 
     return (
       <div className="relative w-full max-w-[360px] aspect-square shadow-2xl rounded-lg overflow-hidden border-4 border-[#FBCB9E] mx-auto">
-        <div className="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-multiply bg-[#FFF5EC]" style={{ backgroundImage: "url('/Oktober.jpeg')", filter: "blur(2px)" }} />
+        <div className="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-multiply bg-[#FFF5EC]" style={{ backgroundImage: "url('/AyangkuManis.png')", filter: "blur(2px)" }} />
         <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 bg-white/20 backdrop-blur-sm">
           {ranks.map((rank, rowIndex) => files.map((file, colIndex) => {
               const squareId = file + rank;
               const piece = game.get(squareId as any);
               const isDark = (rowIndex + colIndex) % 2 !== 0; 
               const isSelected = selectedSquare === squareId; 
-              
               let squareBg = isDark ? 'bg-[#FFCC99]/80' : 'bg-[#FFF5EC]/60';
               if (isSelected) squareBg = 'bg-orange-400/70 ring-inset ring-4 ring-orange-500 shadow-inner';
 
@@ -336,20 +374,16 @@ export default function ChessGame({ onBack }: { onBack: () => void }) {
                 <div key={squareId} onClick={() => handleSquareClick(squareId)} className={`flex items-center justify-center relative cursor-pointer transition-colors duration-200 ${squareBg}`}>
                   <AnimatePresence>
                     {piece && (
-                      <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} transition={{ type: "spring", stiffness: 300, damping: 20 }} className="w-full h-full flex items-center justify-center relative z-10 p-1">
+                      <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="w-full h-full flex items-center justify-center relative z-10 p-1">
                         {(piece.type === 'q' || piece.type === 'k') ? (
                           <div className="relative w-[85%] h-[85%] flex items-center justify-center">
                             <div className="absolute -top-3 z-20 text-[10px] md:text-xs drop-shadow-md">{piece.type === 'k' ? '♔' : '♕'}</div>
-                            <div 
-                              className={`w-full h-full rounded-full bg-cover bg-center border-2 shadow-[0_4px_6px_rgba(0,0,0,0.3)]
-                                ${piece.color === 'w' ? 'border-white shadow-white/30' : 'border-[#FBCB9E] shadow-orange-900/50 filter brightness-90 saturate-150'}`}
-                              style={{ backgroundImage: `url(${PIECE_IMAGES[`${piece.color}${piece.type}`]})` }}
-                            />
+                            <div className={`w-full h-full rounded-full bg-cover bg-center border-2 shadow-lg ${piece.color === 'w' ? 'border-white' : 'border-[#FBCB9E] filter brightness-90 saturate-150'}`} style={{ backgroundImage: `url(${PIECE_IMAGES[`${piece.color}${piece.type}`]})` }} />
                           </div>
                         ) : (
                           <img 
                             src={PIECE_IMAGES[`${piece.color}${piece.type}`]} 
-                            className={`w-[85%] h-[85%] object-contain drop-shadow-[0_3px_3px_rgba(0,0,0,0.5)] ${piece.color === 'b' ? 'filter invert(85%) sepia(20%) saturate(1000%) hue-rotate(335deg) brightness(105%) contrast(100%)' : ''}`} 
+                            className={`w-[85%] h-[85%] object-contain drop-shadow-md ${piece.color === 'b' ? 'filter invert(85%) sepia(20%) saturate(1000%) hue-rotate(335deg) brightness(105%)' : ''}`} 
                             alt={piece.type}
                           />
                         )}
@@ -363,13 +397,35 @@ export default function ChessGame({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
+        {/* STATUS BAR SINYAL & BOT THINKING */}
+        <div className="absolute top-2 right-2 flex gap-2 z-20">
+           {gameMode === 'multiplayer' && (
+               isOnline ? <Wifi size={16} className="text-green-600 bg-white/50 rounded-full p-0.5" /> : <WifiOff size={16} className="text-red-500 animate-pulse bg-white/50 rounded-full p-0.5" />
+           )}
+           {isBotThinking && (
+               <div className="flex items-center gap-1 bg-white/80 px-2 py-0.5 rounded-full shadow-sm border border-orange-200">
+                   <Loader2 size={12} className="animate-spin text-orange-500"/> 
+                   <span className="text-[10px] font-bold text-orange-500">Mikir..</span>
+               </div>
+           )}
+        </div>
+
+        {/* MANUAL REFRESH BUTTON (Backup kalau macet) */}
+        {gameMode === 'multiplayer' && (
+             <button 
+                onClick={() => updateGameLocal("", false)} // Trigger manual fetch
+                className="absolute top-2 left-2 z-20 bg-white/50 p-1.5 rounded-full text-orange-500 hover:bg-white active:scale-95 transition"
+             >
+                <RefreshCw size={14} />
+             </button>
+        )}
+
         <AnimatePresence>
           {isGameOver && (
-            <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-              <div className="bg-white p-6 rounded-2xl shadow-2xl text-center border-4 border-[#FBCB9E] w-[85%]">
+            <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+              <div className="bg-white p-6 rounded-2xl shadow-2xl text-center border-4 border-[#FBCB9E] w-full">
                 <h3 className="text-xl font-black text-gray-800 mb-2">{gameResultMsg}</h3>
-                <p className="text-gray-500 text-xs mb-6 font-bold">Permainan Selesai.</p>
-                <button onClick={resetGame} className="bg-orange-400 hover:bg-orange-500 text-white w-full py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition active:scale-95 shadow-md"><RotateCcw size={18} /> Main Lagi</button>
+                <button onClick={resetGame} className="bg-orange-400 hover:bg-orange-500 text-white w-full py-3 rounded-xl font-bold flex justify-center items-center gap-2"><RotateCcw size={18} /> Main Lagi</button>
               </div>
             </motion.div>
           )}
@@ -386,7 +442,7 @@ export default function ChessGame({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="h-full flex flex-col items-center justify-start p-2 md:p-6 bg-orange-50/10 backdrop-blur-md rounded-2xl w-full overflow-y-auto z-50 no-scrollbar">
-      <button onClick={onBack} className="absolute top-4 left-4 p-2 bg-orange-100 rounded-full shadow hover:bg-orange-200 text-orange-600 z-50"><ArrowLeft size={20} /></button>
+      <button onClick={onBack} className="absolute top-4 left-4 p-2 bg-orange-100 rounded-full shadow text-orange-600 z-50"><ArrowLeft size={20} /></button>
       <AnimatePresence>
         {errorMsg && (
           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed top-16 left-1/2 transform -translate-x-1/2 z-[999] bg-orange-600 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-2 font-bold text-sm border-2 border-white min-w-max">
@@ -401,32 +457,26 @@ export default function ChessGame({ onBack }: { onBack: () => void }) {
 
       {status === "menu" ? (
         <div className="w-full max-w-sm flex flex-col gap-6 pb-10">
-          <div className="bg-white p-5 rounded-3xl shadow-lg border border-orange-100 flex flex-col gap-4">
+          <div className="bg-white p-5 rounded-3xl shadow-lg border border-orange-100 space-y-4">
             <div className="flex items-center gap-2 border-b border-orange-50 pb-2"><Bot className="text-orange-500" size={24} /><h3 className="font-bold text-gray-700">Lawan Komputer</h3></div>
             <div className="flex gap-2">
-              {(["cupu", "standar", "jago"] as const).map((lvl) => (
-                <button key={lvl} onClick={() => setBotDifficulty(lvl)} className={`flex-1 py-2 text-[10px] font-black rounded-xl capitalize border-2 transition-all ${botDifficulty === lvl ? 'bg-orange-50 border-orange-400 text-orange-600' : 'bg-white border-orange-100 text-gray-400 hover:border-orange-200'}`}>{lvl.toUpperCase()}</button>
+              {["cupu", "standar", "jago"].map((lvl) => (
+                <button key={lvl} onClick={() => setBotDifficulty(lvl as any)} className={`flex-1 py-2 text-[10px] font-black rounded-xl capitalize border-2 transition-all ${botDifficulty === lvl ? 'bg-orange-400 border-orange-400 text-white' : 'bg-orange-50 border-orange-100 text-orange-300'}`}>{lvl.toUpperCase()}</button>
               ))}
             </div>
             <div className="flex gap-2 bg-orange-50 p-1.5 rounded-xl border border-orange-100">
-              <button onClick={() => setBotPlayerColor("white")} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${botPlayerColor === 'white' ? 'bg-white text-orange-600 shadow border border-orange-200' : 'text-orange-300 hover:text-orange-400'}`}>Tim Ayang ⚪</button>
+              <button onClick={() => setBotPlayerColor("white")} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${botPlayerColor === 'white' ? 'bg-white text-orange-600 shadow' : 'text-orange-300 hover:text-orange-400'}`}>Tim Ayang ⚪</button>
               <button onClick={() => setBotPlayerColor("black")} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${botPlayerColor === 'black' ? 'bg-orange-600 text-white shadow' : 'text-orange-300 hover:text-orange-400'}`}>Tim Kamu 🍑</button>
             </div>
             <button onClick={startBotMatch} className="w-full bg-gradient-to-r from-orange-400 to-amber-500 text-white py-3 rounded-xl font-bold flex justify-center items-center gap-2 shadow-lg active:scale-95 transition mt-1"><Play size={18} fill="currentColor"/> Main Sekarang!</button>
           </div>
 
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-orange-200"></div>
-            <span className="flex-shrink-0 mx-4 text-orange-300 text-xs font-bold">ATAU ONLINE</span>
-            <div className="flex-grow border-t border-orange-200"></div>
-          </div>
-
-          <div className="bg-white p-5 rounded-3xl shadow-lg border border-orange-100 flex flex-col gap-4">
-            <div className="flex items-center gap-2 border-b border-orange-50 pb-2"><Users className="text-orange-500" size={24} /><h3 className="font-bold text-gray-700">Mabar Sama Ayang</h3></div>
-            <button onClick={createRoom} className="bg-orange-50 hover:bg-orange-100 text-orange-600 p-3 rounded-xl flex items-center justify-center gap-2 font-bold transition active:scale-95 border border-orange-100"><Plus size={18} /> Bikin Room Baru</button>
+          <div className="bg-white p-5 rounded-3xl shadow-lg border border-orange-100 space-y-4">
+            <div className="flex items-center gap-2 border-b border-orange-50 pb-2"><Users className="text-orange-500" size={24} /><h3 className="font-bold text-gray-700">Mabar Online</h3></div>
+            <button onClick={createRoom} className="bg-orange-50 hover:bg-orange-100 text-orange-600 p-3 rounded-xl flex items-center justify-center gap-2 font-bold transition border border-orange-200 text-xs">BUAT ROOM BARU</button>
             <div className="flex gap-2 mt-1">
               <input type="text" placeholder="KODE" className="flex-1 p-3 bg-orange-50 rounded-xl border border-orange-100 text-center font-mono uppercase font-bold text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-200" value={inputCode} onChange={(e) => setInputCode(e.target.value.toUpperCase())}/>
-              <button onClick={joinRoom} className="bg-orange-500 hover:bg-orange-600 text-white px-5 rounded-xl font-bold text-sm shadow-md active:scale-95 transition">Masuk</button>
+              <button onClick={joinRoom} className="bg-orange-500 hover:bg-orange-600 text-white px-5 rounded-xl font-bold text-sm shadow-md active:scale-95 transition">MASUK</button>
             </div>
           </div>
         </div>
