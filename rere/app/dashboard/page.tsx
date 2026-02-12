@@ -2,13 +2,15 @@
 
 import { useState, useEffect, memo, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight, Hand, CircleDot, Gift, Play as PlayIcon, Pause, SkipForward, SkipBack, Music, Volume2, VolumeX, Loader2, Smartphone } from "lucide-react"; 
+import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight, Hand, CircleDot, Gift, Play as PlayIcon, Pause, SkipForward, SkipBack, Music, Volume2, VolumeX, Loader2, Smartphone, Mic2 } from "lucide-react"; 
 import { supabase } from "@/lib/supabaseClient";
+
+// --- IMPORT GAME ---
 import FlappyBirdGame from "@/components/FlappyBirdGame"; 
 import TicTacToeGame from "@/components/TicTacToeGame";
-// --- IMPORT GAME BARU ---
 import AyangIoGame from "@/components/AyangIoGame";
 import ChessGame from "@/components/ChessGame";
+import RhythmKissGame from "@/components/RhythmKissGame";
 
 // =======================================================
 // KONFIGURASI TANGGAL ULANG TAHUN 
@@ -686,14 +688,22 @@ export default function DashboardPage() {
                     </div>
                     <span className="font-bold text-gray-700 text-sm">Catur Ayang</span>
                 </button>
+
+                {/* GAME BARU: RHYTHM KISS */}
+                <button onClick={() => setSelectedGame("rhythm")} className="bg-white p-4 rounded-2xl shadow-lg border border-pink-100 hover:shadow-pink-200 hover:scale-105 transition flex flex-col items-center gap-3 group">
+                    <div className="bg-pink-100 p-4 rounded-full group-hover:bg-pink-200 transition">
+                        <Mic2 size={32} className="text-pink-600" />
+                    </div>
+                    <span className="font-bold text-gray-700 text-sm">Kiss Rhythm</span>
+                </button>
             </div>
         </div>
     );
   };
 
   // --- RETURN UTAMA ---
-  // JIKA GAME AYANG IO DIPILIH, RENDER FULLSCREEN LEPAS DARI DASHBOARD
-  if (selectedGame === 'ayangio') {
+  // JIKA GAME AYANG IO ATAU RHYTHM DIPILIH, RENDER FULLSCREEN LEPAS DARI DASHBOARD
+  if (selectedGame === 'ayangio' || selectedGame === 'rhythm') {
       return (
         <div className="fixed inset-0 z-[9999] bg-white overflow-hidden flex flex-col justify-center items-center">
             {/* Warning Rotate HP */}
@@ -702,7 +712,8 @@ export default function DashboardPage() {
                     <Smartphone size={14} className="animate-pulse"/> Mode Landscape Lebih Seru!
                 </div>
             </div>
-            <AyangIoGame onBack={() => setSelectedGame(null)} />
+            {selectedGame === 'ayangio' && <AyangIoGame onBack={() => setSelectedGame(null)} />}
+            {selectedGame === 'rhythm' && <RhythmKissGame onBack={() => setSelectedGame(null)} />}
         </div>
       );
   }
