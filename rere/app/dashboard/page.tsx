@@ -2,7 +2,12 @@
 
 import { useState, useEffect, memo, useRef } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-import { Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, ChevronLeft, ChevronRight, Hand, CircleDot, Gift, Play as PlayIcon, Pause, SkipForward, SkipBack, Music, Volume2, VolumeX, Loader2, Smartphone, Mic2 } from "lucide-react"; 
+import { 
+  Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, 
+  ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, 
+  ChevronLeft, ChevronRight, Hand, CircleDot, Gift, Play as PlayIcon, Pause, SkipForward, 
+  SkipBack, Music, Volume2, VolumeX, Loader2, Smartphone, Mic2
+} from "lucide-react"; 
 import { supabase } from "@/lib/supabaseClient";
 
 // --- IMPORT GAME ---
@@ -24,8 +29,8 @@ const BLN_LAHIR_KAMU = 9;
 
 // --- KONFIGURASI FOTO BULANAN ---
 const MONTH_IMAGES = [
-  "/Januari.jpeg",   
-  "/Februari.jpeg",  
+  "/Januari.jpeg",    
+  "/Februari.jpeg",   
   "/Maret.jpeg",
   "/April.jpeg",
   "/Mei.jpeg",
@@ -35,7 +40,7 @@ const MONTH_IMAGES = [
   "/September.jpeg",
   "/Oktober.jpeg",
   "/November.jpeg",
-  "/Desember.jpeg"   
+  "/Desember.jpeg"    
 ];
 
 // --- Tipe Data ---
@@ -69,7 +74,7 @@ const NOTE_COLORS = [
 ];
 
 // --- KOMPONEN TYPEWRITER ---
-const Typewriter = ({ text, onComplete, speed = 100, delayAfter = 1000, className = "" }: { text: string, onComplete?: () => void, speed?: number, delayAfter?: number, className?: string }) => {
+const Typewriter = ({ text, onComplete, speed = 50, delayAfter = 1000, className = "" }: { text: string, onComplete?: () => void, speed?: number, delayAfter?: number, className?: string }) => {
   const [displayedText, setDisplayedText] = useState("");
   const onCompleteRef = useRef(onComplete);
 
@@ -275,7 +280,19 @@ export default function DashboardPage() {
   
   const [surpriseStep, setSurpriseStep] = useState(0);
   const [wrongGuessAlert, setWrongGuessAlert] = useState(false);
+  
+  // --- STATE LAMA SCENE 6 ---
   const [pinchCount, setPinchCount] = useState(0); 
+
+  // --- STATE BARU UNTUK SCENE 7-13 ---
+  const [step7Sub, setStep7Sub] = useState(0); // Step 7 text
+  const [step8Choices, setStep8Choices] = useState<number[]>([]); // Step 8 Game Choice
+  const [step9Ranges, setStep9Ranges] = useState({ val1: 0, val2: 0, val3: 0 }); // Step 9 Sliders
+  const [step10Mosquitos, setStep10Mosquitos] = useState([1, 2, 3, 4, 5]); // Step 10 Nyamuk
+  const [step12Sub, setStep12Sub] = useState(0); // Step 12 Text
+  const [step12Hug, setStep12Hug] = useState(0); // Step 12 Hug Logic
+  const [isStep12Holding, setIsStep12Holding] = useState(false); // Step 12 Hug Hold status
+  const [step13Sub, setStep13Sub] = useState(0); // Step 13 Final Text
 
   // --- AUDIO STATES ---
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -283,12 +300,90 @@ export default function DashboardPage() {
   const [userInteracted, setUserInteracted] = useState(false);
   const [isMusicExpanded, setIsMusicExpanded] = useState(false);
   
+  // --- AUDIO MANAGER ---
+  const wasPlayingRef = useRef(false); 
+
+  // Efek untuk Pause/Resume lagu saat game atau video
+  useEffect(() => {
+      // 1. Logic Game Berat
+      if (selectedGame === 'rhythm' || selectedGame === 'ayangio') {
+          if (audioRef.current && !audioRef.current.paused) {
+              wasPlayingRef.current = true;
+              audioRef.current.pause();
+              setIsPlayingAudio(false);
+          } else {
+              wasPlayingRef.current = false;
+          }
+      } else if (!selectedGame) {
+          // Balik ke dashboard dari game
+           if (wasPlayingRef.current && audioRef.current && audioRef.current.paused && surpriseStep !== 11) {
+              audioRef.current.play().catch(e => console.log("Resume failed", e));
+              setIsPlayingAudio(true);
+          }
+      }
+
+      // 2. Logic Step 11 (YouTube Video)
+      if (surpriseStep === 11) {
+        if (audioRef.current && !audioRef.current.paused) {
+            wasPlayingRef.current = true;
+            audioRef.current.pause();
+            setIsPlayingAudio(false);
+        }
+      }
+  }, [selectedGame, surpriseStep]);
+
+  // ==========================================
+  // PERBAIKAN LOGIC HUG (STEP 12) - FIXED
+  // ==========================================
+  
+  // 1. Logic Mengisi (Hanya mengisi jika ditahan DAN di step 12)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (surpriseStep === 12 && isStep12Holding && step12Hug < 100) {
+      interval = setInterval(() => {
+        setStep12Hug((prev) => {
+            if (prev >= 100) return 100;
+            return prev + 1; // Kecepatan isi bar peluk
+        });
+      }, 30);
+    }
+    return () => clearInterval(interval);
+  }, [isStep12Holding, step12Hug, surpriseStep]);
+
+  // 2. Logic Pindah Scene (STRICT MODE: Cek surpriseStep === 12)
+  useEffect(() => {
+    if (surpriseStep === 12 && step12Hug >= 100) {
+        const timeout = setTimeout(() => {
+            setSurpriseStep(13); // Lanjut ke step 13 setelah 0.5 detik
+        }, 500);
+        return () => clearTimeout(timeout);
+    }
+  }, [step12Hug, surpriseStep]);
+
+  // Fungsi Reset Scene Total - FIXED
+  const handleResetSurprise = () => {
+      // Pastikan state holding mati dulu
+      setIsStep12Holding(false);
+      setStep12Hug(0);
+      
+      // Delay sedikit reset step utama agar state lain clear dulu
+      setTimeout(() => {
+        setSurpriseStep(0);
+        setStep7Sub(0);
+        setStep8Choices([]);
+        setStep9Ranges({ val1: 0, val2: 0, val3: 0 });
+        setStep10Mosquitos([1, 2, 3, 4, 5]);
+        setStep12Sub(0);
+        setStep13Sub(0);
+      }, 50);
+  };
+
   // --- MUSIC PLAYLIST STATES ---
   const [playlist, setPlaylist] = useState<SongData[]>([]);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [newSongTitle, setNewSongTitle] = useState("");
-  const [newSongFile, setNewSongFile] = useState<File | null>(null); // File upload state
-  const [isUploadingSong, setIsUploadingSong] = useState(false); // Upload loading state
+  const [newSongFile, setNewSongFile] = useState<File | null>(null); 
+  const [isUploadingSong, setIsUploadingSong] = useState(false); 
   const [showAddSong, setShowAddSong] = useState(false);
 
   // --- DATABASE STATES ---
@@ -328,22 +423,18 @@ export default function DashboardPage() {
       if (data && data.length > 0) {
           setPlaylist(data);
       } else {
-          // Default fallback song if DB is empty
           setPlaylist([{ id: 0, title: "Lagu Romantis Default", url: "/backsound.mp3" }]);
       }
   };
 
-  // --- FUNGSI UPLOAD MP3 KE SUPABASE STORAGE ---
   const handleAddSong = async () => {
       if (!newSongTitle || !newSongFile) return alert("Isi judul dan pilih file lagunya!");
       
       setIsUploadingSong(true);
 
-      // 1. Bersihkan nama file dan buat unik
       const fileExt = newSongFile.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-      // 2. Upload file ke Supabase Storage (Bucket: 'songs')
       const { data: uploadData, error: uploadError } = await supabase.storage
           .from('songs')
           .upload(fileName, newSongFile);
@@ -354,12 +445,10 @@ export default function DashboardPage() {
           return;
       }
 
-      // 3. Dapatkan Public URL
       const { data: { publicUrl } } = supabase.storage
           .from('songs')
           .getPublicUrl(fileName);
 
-      // 4. Simpan info lagu dan Public URL ke tabel 'songs'
       const { error: dbError } = await supabase.from('songs').insert([{ 
           title: newSongTitle, 
           url: publicUrl 
@@ -377,17 +466,25 @@ export default function DashboardPage() {
       setIsUploadingSong(false);
   };
 
-  // Mainkan lagu saat ganti index playlist
   useEffect(() => {
       if (playlist.length > 0) {
+          const songUrl = playlist[currentSongIndex].url;
+
           if (!audioRef.current) {
-              audioRef.current = new Audio(playlist[currentSongIndex].url);
+              audioRef.current = new Audio(songUrl);
               audioRef.current.volume = 0.5;
               audioRef.current.addEventListener('ended', nextSong);
           } else {
-              const wasPlaying = !audioRef.current.paused;
-              audioRef.current.src = playlist[currentSongIndex].url;
-              if (wasPlaying) audioRef.current.play().catch(e => console.error(e));
+              const currentAudioSrc = audioRef.current.src;
+              const tempAudio = new Audio(songUrl);
+              
+              if (currentAudioSrc !== tempAudio.src) {
+                  const wasPlaying = !audioRef.current.paused;
+                  audioRef.current.src = songUrl;
+                  if ((wasPlaying || isPlayingAudio) && !selectedGame && surpriseStep !== 11) {
+                        audioRef.current.play().catch(e => console.error(e));
+                  }
+              }
           }
       }
       return () => {
@@ -395,16 +492,18 @@ export default function DashboardPage() {
               audioRef.current.removeEventListener('ended', nextSong);
           }
       };
-  }, [currentSongIndex, playlist]);
+  }, [currentSongIndex, playlist]); 
 
   const toggleAudio = () => {
     if (audioRef.current) {
       if (isPlayingAudio) {
         audioRef.current.pause();
         setIsPlayingAudio(false);
+        wasPlayingRef.current = false; 
       } else {
         audioRef.current.play().catch(e => console.log("Play failed:", e));
         setIsPlayingAudio(true);
+        wasPlayingRef.current = true; 
       }
     }
   };
@@ -422,9 +521,12 @@ export default function DashboardPage() {
   const handleFirstInteraction = () => {
     if (!userInteracted) {
         setUserInteracted(true);
-        if (audioRef.current && !isPlayingAudio) {
+        if (audioRef.current && !isPlayingAudio && !selectedGame && surpriseStep !== 11) {
             audioRef.current.play()
-            .then(() => setIsPlayingAudio(true))
+            .then(() => {
+                setIsPlayingAudio(true);
+                wasPlayingRef.current = true;
+            })
             .catch(() => console.log("Auto-play blocked"));
         }
     }
@@ -443,6 +545,7 @@ export default function DashboardPage() {
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
     setPinchCount(prev => prev + 1);
   };
+
 
   // --- CRUD DATA ---
   const fetchEvents = async () => {
@@ -848,7 +951,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="w-full max-w-5xl h-[80vh] md:h-[85vh] bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50 flex flex-col relative mt-12 md:mt-0">
-           
+            
            <div className="hidden md:flex justify-between items-center p-6 border-b border-pink-50">
                <div className="flex items-center gap-2"><div className="bg-pink-500 p-2 rounded-full text-white"><Heart size={20} fill="white" /></div><span className="font-bold text-pink-600 text-xl">Rere Sayang</span></div>
                <div className="flex gap-6">
@@ -1013,7 +1116,7 @@ export default function DashboardPage() {
                                     </div>
                                     <h2 className="text-3xl font-bold text-gray-800 mb-2">Yeyyy! Akhirnya sayangkuu manuttttt! 🎉</h2>
                                     <p className="text-gray-500 mb-8">Kamu emang kesayangan aku yang paling manisss!</p>
-                                    <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6aG16YjF6aG16YjF6aG16YjF6aG16YjF6aG16YjF6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MDJ9IbxxvDUQM/giphy.gif" alt="Cute Cat" className="w-48 rounded-xl shadow-lg mb-6" />
+                                    <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExbXN6aG16YjF6aG16YjF6aG16YjF6aG16YjF6YSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/MDJ9IbxxvDUQM/giphy.gif" alt="Cute Cat" className="w-48 rounded-xl shadow-lg mb-6" />
                                     
                                     <motion.button 
                                         whileHover={{ scale: 1.05 }}
@@ -1032,6 +1135,7 @@ export default function DashboardPage() {
                                     key="step6"
                                     initial={{ scale: 0.8, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ opacity:0, y:-100 }}
                                     className="flex flex-col items-center justify-center h-full text-center p-6"
                                 >
                                     <h2 className="text-2xl md:text-3xl font-bold text-pink-600 mb-2 font-valentine">
@@ -1088,12 +1192,398 @@ export default function DashboardPage() {
                                         <span className="text-pink-500 font-bold">{pinchCount}</span> <span className="text-gray-500 text-sm">kali ditarik 🤕</span>
                                     </div>
 
-                                    <button onClick={() => setSurpriseStep(0)} className="text-gray-400 hover:text-pink-500 hover:underline text-sm flex items-center gap-1 transition-colors">
-                                        <RotateCcw size={14}/> Udahan ah, kasian
+                                    {/* MODIFIED: TOMBOL LANJUT KE SCENE BERIKUTNYA */}
+                                    <motion.button 
+                                        initial={{ opacity: 0 }} 
+                                        animate={{ opacity: 1 }} 
+                                        transition={{ delay: 1 }}
+                                        onClick={() => setSurpriseStep(7)} 
+                                        className="bg-white border-2 border-pink-200 text-pink-500 hover:bg-pink-50 px-6 py-2 rounded-full font-bold flex items-center gap-2"
+                                    >
+                                        Masih ada lagi nih 👇
+                                    </motion.button>
+                                </motion.div>
+                            )}
+
+                            {/* ============================================================ */}
+                            {/* STEP 7: PERCAYA CUBIT                       */}
+                            {/* ============================================================ */}
+                            {surpriseStep === 7 && (
+                                <motion.div key="step7" className="flex flex-col items-center justify-center h-full p-6 text-center max-w-md mx-auto">
+                                    <AnimatePresence mode="wait">
+                                        {step7Sub === 0 && (
+                                            <motion.div 
+                                                key="text1"
+                                                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+                                            >
+                                                <h2 className="text-2xl md:text-3xl font-bold text-pink-600 mb-6">Ga sakit kan cubitnya??? 🥺</h2>
+                                                <button onClick={() => setStep7Sub(1)} className="bg-pink-500 text-white px-6 py-2 rounded-full font-bold shadow-lg">Engga kok</button>
+                                            </motion.div>
+                                        )}
+                                        {step7Sub === 1 && (
+                                            <motion.div 
+                                                key="text2"
+                                                initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                                            >
+                                                <h2 className="text-2xl md:text-4xl font-valentine text-pink-600 mb-6">Jadi percaya dong kalo ketemu ku cubit? 😏</h2>
+                                                <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="text-6xl mb-8">🤭</motion.div>
+                                                <button onClick={() => setSurpriseStep(8)} className="bg-white border-2 border-pink-500 text-pink-500 px-6 py-2 rounded-full font-bold hover:bg-pink-50">Iya dehhh</button>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            )}
+
+                            {/* ============================================================ */}
+                            {/* STEP 8: CHOICE CIRCLE                       */}
+                            {/* ============================================================ */}
+                            {surpriseStep === 8 && (
+                                <motion.div key="step8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center h-full w-full relative">
+                                    <h3 className="text-xl font-bold text-gray-700 mb-10 text-center px-4 bg-white/80 p-2 rounded-xl backdrop-blur-sm z-20">
+                                        Si manis ini sering ngomong apa ya? 🤔
+                                        <span className="block text-xs font-normal text-gray-400 mt-1">(Klik semua kotak ucapan)</span>
+                                    </h3>
+
+                                    <div className="relative w-[300px] h-[300px] md:w-[400px] md:h-[400px] flex items-center justify-center">
+                                        {/* FOTO TENGAH */}
+                                        <div className="absolute w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-white shadow-2xl overflow-hidden z-10">
+                                            <img src="/Simanis.jpeg" alt="Ayang" className="w-full h-full object-cover" />
+                                        </div>
+
+                                        {/* CHOICE 1 - ATAS */}
+                                        <motion.button
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={() => !step8Choices.includes(1) && setStep8Choices([...step8Choices, 1])}
+                                            className={`absolute top-0 left-1/2 -translate-x-1/2 px-4 py-3 rounded-2xl shadow-lg border-2 text-xs md:text-sm font-bold transition-all z-20 w-40 text-center
+                                                ${step8Choices.includes(1) ? 'bg-green-500 text-white border-green-600' : 'bg-white text-pink-600 border-pink-200'}`}
+                                        >
+                                            {step8Choices.includes(1) && <CheckCircle size={12} className="inline mr-1"/>}
+                                            Kamu ga bosen sama aku? 🥺
+                                        </motion.button>
+
+                                        {/* CHOICE 2 - KANAN */}
+                                        <motion.button
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={() => !step8Choices.includes(2) && setStep8Choices([...step8Choices, 2])}
+                                            className={`absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 px-4 py-3 rounded-2xl shadow-lg border-2 text-xs md:text-sm font-bold transition-all z-20 w-32 text-center
+                                                ${step8Choices.includes(2) ? 'bg-green-500 text-white border-green-600' : 'bg-white text-pink-600 border-pink-200'}`}
+                                        >
+                                            {step8Choices.includes(2) && <CheckCircle size={12} className="inline mr-1"/>}
+                                            Kamu sayang aku ga? 👉👈
+                                        </motion.button>
+
+                                        {/* CHOICE 3 - BAWAH */}
+                                        <motion.button
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={() => !step8Choices.includes(3) && setStep8Choices([...step8Choices, 3])}
+                                            className={`absolute bottom-0 left-1/2 -translate-x-1/2 px-4 py-3 rounded-2xl shadow-lg border-2 text-xs md:text-sm font-bold transition-all z-20 w-40 text-center
+                                                ${step8Choices.includes(3) ? 'bg-green-500 text-white border-green-600' : 'bg-white text-pink-600 border-pink-200'}`}
+                                        >
+                                            {step8Choices.includes(3) && <CheckCircle size={12} className="inline mr-1"/>}
+                                            Kamu ga kangen sama aku? ☹️
+                                        </motion.button>
+
+                                        {/* CHOICE 4 - KIRI */}
+                                        <motion.button
+                                            whileTap={{ scale: 0.9 }}
+                                            onClick={() => !step8Choices.includes(4) && setStep8Choices([...step8Choices, 4])}
+                                            className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 px-4 py-3 rounded-2xl shadow-lg border-2 text-xs md:text-sm font-bold transition-all z-20 w-32 text-center
+                                                ${step8Choices.includes(4) ? 'bg-green-500 text-white border-green-600' : 'bg-white text-pink-600 border-pink-200'}`}
+                                        >
+                                            {step8Choices.includes(4) && <CheckCircle size={12} className="inline mr-1"/>}
+                                            Pretttt 🤪
+                                        </motion.button>
+                                    </div>
+
+                                    {/* BUTTON NEXT */}
+                                    <AnimatePresence>
+                                        {step8Choices.length === 4 && (
+                                            <motion.button
+                                                initial={{ scale: 0 }} animate={{ scale: 1 }}
+                                                onClick={() => setSurpriseStep(9)}
+                                                className="absolute bottom-10 bg-pink-500 text-white px-8 py-3 rounded-full font-bold shadow-xl hover:bg-pink-600 z-30 flex items-center gap-2"
+                                            >
+                                                Bener semua wkwk <ArrowRight size={18}/>
+                                            </motion.button>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            )}
+
+                            {/* ============================================================ */}
+                            {/* STEP 9: SLIDER 1000%                        */}
+                            {/* ============================================================ */}
+                            {surpriseStep === 9 && (
+                                <motion.div key="step9" initial={{ opacity: 0, x: 100 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -100 }} className="flex flex-col items-center justify-center h-full p-6 w-full max-w-md mx-auto text-center">
+                                    <h2 className="text-xl font-bold text-gray-700 mb-2">Mungkin kamu ragu...</h2>
+                                    <p className="text-sm text-gray-500 mb-8">Tapi coba tarik slider ini biar kamu percaya perasaanku!</p>
+
+                                    <div className="w-full space-y-6">
+                                        {/* Slider 1 */}
+                                        <div className="bg-white p-4 rounded-xl shadow-sm border border-pink-100">
+                                            <div className="flex justify-between mb-2">
+                                                <label className="text-xs font-bold text-pink-500">Seberapa aku sayang kamu?</label>
+                                                <span className="text-xs font-black text-pink-600">{step9Ranges.val1}%</span>
+                                            </div>
+                                            <input 
+                                                type="range" min="0" max="1000" 
+                                                value={step9Ranges.val1} 
+                                                onChange={(e) => setStep9Ranges({...step9Ranges, val1: parseInt(e.target.value)})}
+                                                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                                            />
+                                        </div>
+
+                                        {/* Slider 2 */}
+                                        <div className="bg-white p-4 rounded-xl shadow-sm border border-pink-100">
+                                            <div className="flex justify-between mb-2">
+                                                <label className="text-xs font-bold text-pink-500">Seberapa aku kangen kamu?</label>
+                                                <span className="text-xs font-black text-pink-600">{step9Ranges.val2}%</span>
+                                            </div>
+                                            <input 
+                                                type="range" min="0" max="1000" 
+                                                value={step9Ranges.val2} 
+                                                onChange={(e) => setStep9Ranges({...step9Ranges, val2: parseInt(e.target.value)})}
+                                                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                                            />
+                                        </div>
+
+                                        {/* Slider 3 */}
+                                        <div className="bg-white p-4 rounded-xl shadow-sm border border-pink-100">
+                                            <div className="flex justify-between mb-2">
+                                                <label className="text-xs font-bold text-pink-500">Seberapa nyaman aku?</label>
+                                                <span className="text-xs font-black text-pink-600">{step9Ranges.val3}%</span>
+                                            </div>
+                                            <input 
+                                                type="range" min="0" max="1000" 
+                                                value={step9Ranges.val3} 
+                                                onChange={(e) => setStep9Ranges({...step9Ranges, val3: parseInt(e.target.value)})}
+                                                className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {step9Ranges.val1 === 1000 && step9Ranges.val2 === 1000 && step9Ranges.val3 === 1000 && (
+                                        <motion.button 
+                                            initial={{ scale: 0 }} animate={{ scale: 1 }}
+                                            onClick={() => setSurpriseStep(10)} 
+                                            className="mt-8 bg-pink-600 text-white px-8 py-3 rounded-full font-bold shadow-lg animate-bounce"
+                                        >
+                                            Full 1000% Sayang! Lanjut! ❤️
+                                        </motion.button>
+                                    )}
+                                </motion.div>
+                            )}
+
+                            {/* ============================================================ */}
+                            {/* STEP 10: SEMPROT NYAMUK (FIXED)             */}
+                            {/* ============================================================ */}
+                            {surpriseStep === 10 && (
+                                <motion.div key="step10" className="flex flex-col items-center justify-center h-full w-full relative overflow-hidden">
+                                    <div className="text-center z-20 pointer-events-none mb-20 px-4">
+                                        <h2 className="text-xl md:text-2xl font-bold text-pink-600 mb-2">Btw kamar asrama banyak nyamuk kan? 🦟</h2>
+                                        <p className="text-gray-600 text-sm">Sini aku bantuin semprot! (Klik nyamuknya)</p>
+                                    </div>
+
+                                    {/* Area Nyamuk */}
+                                    <div className="absolute inset-0 z-10">
+                                        <AnimatePresence>
+                                            {step10Mosquitos.map((id) => (
+                                                <motion.button
+                                                    key={id}
+                                                    initial={{ opacity: 0, scale: 0 }}
+                                                    animate={{ 
+                                                        opacity: 1, scale: 1,
+                                                        x: [0, Math.random() * 300 - 150], 
+                                                        y: [0, Math.random() * 400 - 200],
+                                                        rotate: [0, 10, -10, 0]
+                                                    }}
+                                                    // FIX: Override transition di exit biar cepet ilang (0.2s)
+                                                    exit={{ scale: 0, opacity: 0, transition: { duration: 0.2 } }} 
+                                                    transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // Biar klik gak tembus
+                                                        setStep10Mosquitos(prev => prev.filter(m => m !== id));
+                                                    }}
+                                                    className="absolute top-1/2 left-1/2 w-12 h-12 bg-white rounded-full shadow-md flex items-center justify-center text-2xl border border-gray-200 cursor-crosshair active:bg-red-200"
+                                                >
+                                                    🦟
+                                                </motion.button>
+                                            ))}
+                                        </AnimatePresence>
+                                    </div>
+
+                                    {step10Mosquitos.length === 0 && (
+                                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="z-30 text-center">
+                                            <h3 className="text-2xl font-bold text-green-600 mb-4">Bersih! ✨</h3>
+                                            <button onClick={() => setSurpriseStep(11)} className="bg-pink-500 text-white px-8 py-3 rounded-full font-bold shadow-lg">
+                                                Lanjut step berikutnya
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </motion.div>
+                            )}
+
+                            {/* ============================================================ */}
+                            {/* STEP 11: VIDEO YOUTUBE                      */}
+                            {/* ============================================================ */}
+                            {surpriseStep === 11 && (
+                                <motion.div key="step11" className="flex flex-col items-center justify-center h-full p-6 text-center w-full max-w-lg mx-auto">
+                                    <h2 className="text-xl font-bold text-pink-600 mb-4">Si manis ini kayaknya lagi ketagihan ini nih 🎵</h2>
+                                    
+                                    <div className="w-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl mb-6 border-4 border-white">
+                                        <iframe 
+                                            width="100%" 
+                                            height="100%" 
+                                            src="https://www.youtube.com/embed/fdJrSjMgPFE" 
+                                            title="YouTube video player" 
+                                            frameBorder="0" 
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                            allowFullScreen
+                                        ></iframe>
+                                    </div>
+
+                                    <p className="text-xs text-gray-400 mb-6 italic">*Lagu background otomatis dipause biar ga tabrakan*</p>
+
+                                    <button 
+                                        onClick={() => {
+                                            if (wasPlayingRef.current && audioRef.current) {
+                                                audioRef.current.play(); // Resume lagu dashboard kalo mau
+                                                setIsPlayingAudio(true);
+                                            }
+                                            setSurpriseStep(12);
+                                        }} 
+                                        className="bg-pink-500 text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-pink-600 flex items-center gap-2"
+                                    >
+                                        Lanjut yok manis <ArrowRight size={18}/>
                                     </button>
                                 </motion.div>
                             )}
 
+                            {/* ============================================================ */}
+                            {/* STEP 12: SEQUENCE TEXT & HUG                */}
+                            {/* ============================================================ */}
+                            {surpriseStep === 12 && (
+                                <motion.div key="step12" className="flex flex-col items-center justify-center h-full p-6 text-center max-w-md mx-auto">
+                                    <AnimatePresence mode="wait">
+                                        {step12Sub === 0 && (
+                                            <motion.div key="s12-1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                                <Typewriter 
+                                                    text="Gimana sayang? Seru enggak? 😁" 
+                                                    speed={50} 
+                                                    delayAfter={1500}
+                                                    onComplete={() => setStep12Sub(1)}
+                                                    className="text-2xl font-bold text-gray-700" 
+                                                />
+                                            </motion.div>
+                                        )}
+                                        {step12Sub === 1 && (
+                                            <motion.div key="s12-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                                <Typewriter 
+                                                    text="Maaf ya kalo kurang seru.. 😢" 
+                                                    speed={50} 
+                                                    delayAfter={1500}
+                                                    onComplete={() => setStep12Sub(2)}
+                                                    className="text-2xl font-bold text-gray-500" 
+                                                />
+                                            </motion.div>
+                                        )}
+                                        {step12Sub === 2 && (
+                                            <motion.div key="s12-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                                <Typewriter 
+                                                    text="Tapi kalo kamu emang merasa seru dan terhibur, terima kasih ya sayang! 🥰" 
+                                                    speed={50} 
+                                                    delayAfter={2000}
+                                                    onComplete={() => setStep12Sub(3)}
+                                                    className="text-2xl font-bold text-pink-600" 
+                                                />
+                                            </motion.div>
+                                        )}
+                                        {step12Sub === 3 && (
+                                            <motion.div key="s12-4" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center">
+                                                <h2 className="text-3xl font-valentine text-pink-600 mb-8">Peluk dulu dong, kangen nih! 🤗</h2>
+                                                
+                                                <button
+                                                    onMouseDown={() => setIsStep12Holding(true)}
+                                                    onMouseUp={() => setIsStep12Holding(false)}
+                                                    onTouchStart={() => setIsStep12Holding(true)}
+                                                    onTouchEnd={() => setIsStep12Holding(false)}
+                                                    className="relative w-40 h-40 rounded-full bg-gray-100 border-4 border-pink-200 flex items-center justify-center overflow-hidden shadow-inner active:scale-95 transition-transform"
+                                                >
+                                                    <div className="absolute bottom-0 left-0 right-0 bg-pink-400 transition-all duration-75 ease-linear" style={{ height: `${step12Hug}%` }}></div>
+                                                    <Heart size={64} className={`relative z-10 transition-colors ${step12Hug > 50 ? 'text-white' : 'text-pink-300'}`} fill={step12Hug > 50 ? "white" : "none"}/>
+                                                </button>
+                                                <p className="mt-4 text-sm text-gray-400 font-bold">{step12Hug}% Pelukan</p>
+                                                <p className="text-xs text-gray-300">Tahan tombol love-nya</p>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                            )}
+
+                            {/* ============================================================ */}
+                            {/* STEP 13: FINAL CLOSING                      */}
+                            {/* ============================================================ */}
+                            {surpriseStep === 13 && (
+                                <motion.div key="step13" className="flex flex-col items-center justify-center h-full p-6 text-center max-w-md mx-auto relative">
+                                    {/* Background Effect */}
+                                    <div className="absolute inset-0 pointer-events-none">
+                                        <motion.div animate={{ opacity: [0, 1, 0], y: -50 }} transition={{ repeat: Infinity, duration: 2 }} className="absolute top-1/4 left-10 text-2xl">❤️</motion.div>
+                                        <motion.div animate={{ opacity: [0, 1, 0], y: -50 }} transition={{ repeat: Infinity, duration: 2.5, delay: 0.5 }} className="absolute top-1/3 right-10 text-2xl">💖</motion.div>
+                                    </div>
+
+                                    <AnimatePresence mode="wait">
+                                        {step13Sub === 0 && (
+                                            <motion.h2 key="t1" initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0, y:-20}} className="text-2xl font-bold text-pink-600">
+                                                Sayang, makasih pelukannya! 🤗
+                                            </motion.h2>
+                                        )}
+                                        {step13Sub === 1 && (
+                                            <motion.h2 key="t2" initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0, y:-20}} className="text-2xl font-bold text-gray-700">
+                                                Terima kasih juga atas semuanya...
+                                            </motion.h2>
+                                        )}
+                                        {step13Sub === 2 && (
+                                            <motion.h2 key="t3" initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0, y:-20}} className="text-xl font-bold text-gray-600 leading-relaxed">
+                                                Terima kasih kamu sudah bertahan dan berusaha loyal kepadaku.. ❤️
+                                            </motion.h2>
+                                        )}
+                                        {step13Sub === 3 && (
+                                            <motion.h2 key="t4" initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0, y:-20}} className="text-xl font-bold text-gray-600 leading-relaxed">
+                                                Terima kasih kamu sudah bersabar menghadapi overthinkingku.. 🧠
+                                            </motion.h2>
+                                        )}
+                                        {step13Sub === 4 && (
+                                            <motion.h2 key="t5" initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0, y:-20}} className="text-xl font-bold text-gray-600 leading-relaxed">
+                                                Terima kasih kamu udah mau berubah walaupun berat, demi menghormati perasaanku. 🥺
+                                            </motion.h2>
+                                        )}
+                                        {step13Sub === 5 && (
+                                            <motion.div key="t6" initial={{opacity:0, scale:0.8}} animate={{opacity:1, scale:1}} exit={{opacity:0, scale:1.2}}>
+                                                <h2 className="text-3xl font-valentine font-bold text-pink-600 mb-4">Thank you a lot, my darling Rere 💝</h2>
+                                            </motion.div>
+                                        )}
+                                        {step13Sub === 6 && (
+                                            <motion.div key="t7" initial={{opacity:0}} animate={{opacity:1}} className="flex flex-col items-center">
+                                                <h1 className="text-4xl md:text-5xl font-valentine font-bold text-red-500 mb-8 drop-shadow-md">I Love You Forever! 💍</h1>
+                                                <button onClick={handleResetSurprise} className="flex items-center gap-2 text-gray-400 hover:text-pink-500 transition-colors text-sm border-b border-transparent hover:border-pink-500 pb-1">
+                                                    <RotateCcw size={14}/> Ulangi Scene Ini
+                                                </button>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                    
+                                    {/* Navigation Arrow for Text Sequence */}
+                                    {step13Sub < 6 && (
+                                        <motion.button 
+                                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }}
+                                            onClick={() => setStep13Sub(prev => prev + 1)}
+                                            className="mt-12 bg-white/50 hover:bg-white p-3 rounded-full shadow-sm text-pink-400 hover:text-pink-600 transition-all"
+                                        >
+                                            <ChevronRight size={24}/>
+                                        </motion.button>
+                                    )}
+                                </motion.div>
+                            )}
                         </AnimatePresence>
                     </div>
                   )}
