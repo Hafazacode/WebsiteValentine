@@ -6,8 +6,8 @@ import {
   Heart, Home, Gamepad2, Calendar, StickyNote, Clock, List, Hourglass, Plus, Trash2, X, 
   ArrowDown, RotateCcw, ArrowRight, CheckCircle, AlertOctagon, Bird, CalendarCheck, 
   ChevronLeft, ChevronRight, Hand, CircleDot, Gift, Play as PlayIcon, Pause, SkipForward, 
-  SkipBack, Music, Volume2, VolumeX, Loader2, Smartphone, Mic2,
-  Folder, FolderPlus, Smile, Frown, Zap, Lightbulb, Star, CloudRain, Flame, Disc, BarChart3, Image as ImageIcon
+  SkipBack, Music, Volume2, Loader2, Smartphone, Mic2,
+  Smile, Frown, Zap, Lightbulb, Star, CloudRain, Flame, Disc, AlertTriangle
 } from "lucide-react"; 
 import { supabase } from "@/lib/supabaseClient";
 
@@ -34,10 +34,12 @@ const MONTH_IMAGES = [
 
 // --- Tipe Data ---
 type EventData = { id: number; title: string; date: string; description: string; };
-type CategoryData = { id: string; name: string; icon: string; color: string; };
+type CategoryData = { id: string | number; name: string; icon: string; color: string; };
 type NoteData = { id: number; title: string; content: string; color: string; x: number; y: number; };
-// Update tipe data Song untuk cover_url
 type SongData = { id: number; title: string; url: string; categoryId?: string; cover_url?: string | null; };
+
+// Helper untuk mengecek apakah string adalah kode Hex Color (#RRGGBB)
+const isHexColor = (color: string) => color?.startsWith('#');
 
 const NOTE_COLORS = [
   { name: "yellow", bg: "bg-yellow-200" }, { name: "pink", bg: "bg-pink-200" },
@@ -219,14 +221,26 @@ export default function DashboardPage() {
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
   const [newSongTitle, setNewSongTitle] = useState("");
   const [newSongFile, setNewSongFile] = useState<File | null>(null); 
-  const [newSongImage, setNewSongImage] = useState<File | null>(null); // State baru untuk cover image
+  const [newSongImage, setNewSongImage] = useState<File | null>(null); 
   const [isUploadingSong, setIsUploadingSong] = useState(false); 
   const [showAddSong, setShowAddSong] = useState(false);
-  const [categories, setCategories] = useState<CategoryData[]>([{ id: 'all', name: 'Semua', icon: 'star', color: 'bg-white' }]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState('all');
+  
+  // State Kategori
+  const [categories, setCategories] = useState<CategoryData[]>([{ id: 'all', name: 'Semua', icon: 'star', color: '#ffffff' }]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | number>('all');
   const [showAddCategory, setShowAddCategory] = useState(false);
-  const [newCategory, setNewCategory] = useState({ name: "", icon: "happy", color: "bg-blue-100" });
-  const [newSongCategory, setNewSongCategory] = useState("all");
+  
+  // State Delete Modal Custom
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    categoryId: null as string | number | null,
+    categoryName: "",
+    songCount: 0
+  });
+  
+  // DEFAULT COLOR HEX untuk input picker
+  const [newCategory, setNewCategory] = useState({ name: "", icon: "happy", color: "#EC4899" }); 
+  const [newSongCategory, setNewSongCategory] = useState<string | number>("all");
 
   // Database States
   const [events, setEvents] = useState<EventData[]>([]);
@@ -290,11 +304,95 @@ export default function DashboardPage() {
   useEffect(() => { 
       if (activeTab === 'calendar' && events.length === 0) fetchEvents();
       if (activeTab === 'notes' && notes.length === 0) fetchNotes();
+      fetchCategories();
   }, [activeTab]);
 
   useEffect(() => { fetchPlaylist(); }, []);
 
   // --- MUSIC LOGIC ---
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase.from('categories').select('*');
+    if (error) {
+        console.error("Gagal load kategori:", error);
+    } else {
+        const dbCats = data?.map((c: any) => ({
+            id: c.id, 
+            name: c.name, 
+            icon: c.icon, 
+            color: c.color 
+        })) || [];
+        setCategories([{ id: 'all', name: 'Semua', icon: 'star', color: '#ffffff' }, ...dbCats]);
+    }
+  };
+
+  const handleAddCategory = async () => {
+    if(!newCategory.name) return;
+    
+    const { error } = await supabase.from('categories').insert([{
+        name: newCategory.name,
+        icon: newCategory.icon,
+        color: newCategory.color
+    }]);
+
+    if(error) {
+        alert("Gagal simpan kategori: " + error.message);
+    } else {
+        fetchCategories(); 
+        setNewCategory({ name: "", icon: "happy", color: "#EC4899" }); 
+        setShowAddCategory(false);
+    }
+  };
+
+  // 1. Initiate Delete (Cek lagu dulu, lalu buka modal custom)
+  const initiateDeleteCategory = async (id: string | number, categoryName: string) => {
+    if (id === 'all') return;
+    
+    // Cek jumlah lagu
+    const { count, error: countError } = await supabase
+        .from('songs')
+        .select('*', { count: 'exact', head: true })
+        .eq('categoryId', id);
+
+    if (countError) {
+        alert("Gagal mengecek data lagu: " + countError.message);
+        return;
+    }
+
+    // Buka Modal Konfirmasi
+    setDeleteModal({
+        isOpen: true,
+        categoryId: id,
+        categoryName: categoryName,
+        songCount: count || 0
+    });
+  };
+
+  // 2. Execute Delete (Dipanggil setelah tombol "Hapus" di modal ditekan)
+  const executeDeleteCategory = async () => {
+     const { categoryId, songCount } = deleteModal;
+     if (!categoryId) return;
+
+     // Hapus lagu dulu jika ada
+     if (songCount > 0) {
+        const { error: delSongsError } = await supabase.from('songs').delete().eq('categoryId', categoryId);
+        if (delSongsError) {
+            alert("Gagal menghapus lagu dalam kategori: " + delSongsError.message);
+            return;
+        }
+     }
+
+     // Hapus Kategori
+     const { error } = await supabase.from('categories').delete().eq('id', categoryId);
+     if (error) {
+        alert("Gagal hapus kategori: " + error.message);
+     } else {
+        setSelectedCategoryId('all'); 
+        fetchCategories(); 
+        fetchPlaylist(); 
+        setDeleteModal({ isOpen: false, categoryId: null, categoryName: "", songCount: 0 }); // Tutup modal
+     }
+  };
 
   const fetchPlaylist = async () => {
       const { data } = await supabase.from('songs').select('*').order('id', { ascending: true });
@@ -304,7 +402,7 @@ export default function DashboardPage() {
 
   const getFilteredPlaylist = () => {
       if (selectedCategoryId === 'all') return playlist;
-      return playlist.filter(s => s.categoryId === selectedCategoryId || !s.categoryId);
+      return playlist.filter(s => String(s.categoryId) === String(selectedCategoryId) || !s.categoryId);
   };
   
   const handleAddSong = async () => {
@@ -438,8 +536,8 @@ export default function DashboardPage() {
   const handleDeleteEvent = async (id: number) => { if(!confirm("Hapus?")) return; await supabase.from('events').delete().eq('id', id); fetchEvents(); };
 
   const fetchNotes = async () => { setLoadingNotes(true); const { data } = await supabase.from('notes').select('*'); setNotes(data || []); setLoadingNotes(false); };
-  const handleAddCategory = () => { if(!newCategory.name) return; const newCat = { id: Date.now().toString(), ...newCategory }; setCategories([...categories, newCat]); setNewCategory({ name: "", icon: "happy", color: "bg-blue-100" }); setShowAddCategory(false); };
-  const handleAddNote = async () => { if(!newNote.title || !newNote.content) return alert("Tulis dulu!"); const randomX = Math.floor(Math.random() * 50); const randomY = Math.floor(Math.random() * 50); await supabase.from('notes').insert([{ ...newNote, x: randomX, y: randomY }]); fetchNotes(); setNewNote({ title: "", content: "", color: NOTE_COLORS[0].bg }); setShowNoteForm(false); };
+  
+  const handleAddNote = async () => { if (!newNote.title || !newNote.content) return alert("Tulis dulu!"); const randomX = Math.floor(Math.random() * 50); const randomY = Math.floor(Math.random() * 50); await supabase.from('notes').insert([{ ...newNote, x: randomX, y: randomY }]); fetchNotes(); setNewNote({ title: "", content: "", color: NOTE_COLORS[0].bg }); setShowNoteForm(false); };
   const handleDeleteNote = async (id: number) => { if(!confirm("Buang?")) return; setNotes(prev => prev.filter(n => n.id !== id)); await supabase.from('notes').delete().eq('id', id); };
   const handleUpdateNotePos = async (id: number, x: number, y: number) => { await supabase.from('notes').update({ x, y }).eq('id', id); };
 
@@ -748,27 +846,61 @@ export default function DashboardPage() {
     );
   };
 
-  // --- 3. RENDER MUSIC PLAYER TAB (UPDATED: SPLIT VIEW + COVER ART) ---
+  // --- 3. RENDER MUSIC PLAYER TAB (UPDATED: DYNAMIC BACKGROUND FOR BAR, PLAYER & PLAYLIST) ---
   const renderMusicTab = () => {
+    // 1. Ambil warna aktif dari kategori terpilih
+    const activeCategory = categories.find(c => String(c.id) === String(selectedCategoryId)) || categories[0];
+    const activeColor = activeCategory?.color || '#ffffff';
+    const isHex = isHexColor(activeColor);
+
+    // Style untuk background container utama (Menu Bar)
+    const containerStyle = isHex ? { backgroundColor: activeColor } : {};
+    const containerClass = isHex ? "" : activeColor; // Untuk tailwind class lama
+
     return (
         <div className="h-full w-full flex flex-col bg-gray-50/50 backdrop-blur-sm animate-in fade-in">
-             {/* CATEGORY BAR */}
-             <div className="w-full bg-white/80 border-b border-pink-100 p-3 overflow-x-auto no-scrollbar shadow-sm sticky top-0 z-20">
+             {/* CATEGORY BAR: Background berubah sesuai kategori */}
+             <div 
+                className={`w-full border-b border-pink-100 p-3 overflow-x-auto no-scrollbar shadow-sm sticky top-0 z-20 transition-colors duration-500 ${containerClass}`}
+                style={containerStyle}
+             >
                 <div className="flex gap-2 items-center">
                   <div className="flex gap-2">
                     {categories.map(cat => {
                         const Icon = MOOD_ICONS.find(m => m.id === cat.icon)?.icon || Star;
-                        const isSelected = selectedCategoryId === cat.id;
+                        const isSelected = String(selectedCategoryId) === String(cat.id);
+                        
                         return (
-                            <button key={cat.id} onClick={() => setSelectedCategoryId(cat.id)} className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all border ${isSelected ? 'bg-pink-500 text-white border-pink-600 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-pink-50'}`}>
+                            <button 
+                                key={cat.id} 
+                                onClick={() => setSelectedCategoryId(cat.id)} 
+                                className={`
+                                    flex items-center gap-2 px-3 py-1.5 rounded-full transition-all border 
+                                    ${isSelected 
+                                        ? 'bg-white/90 text-gray-800 shadow-lg scale-105 font-bold border-white' // Tombol Aktif jadi Putih/Kontras
+                                        : 'bg-white/40 text-gray-700 hover:bg-white/60 border-transparent' // Tombol Tidak Aktif jadi transparan
+                                    }
+                                `}
+                            >
                                 <Icon size={14} fill={isSelected ? "currentColor" : "none"}/>
-                                <span className="text-xs font-bold whitespace-nowrap">{cat.name}</span>
+                                <span className="text-xs whitespace-nowrap">{cat.name}</span>
+                                
+                                {/* TOMBOL HAPUS KATEGORI (Hanya jika aktif & bukan default) */}
+                                {isSelected && cat.id !== 'all' && (
+                                    <div 
+                                        onClick={(e) => { e.stopPropagation(); initiateDeleteCategory(cat.id, cat.name); }}
+                                        className="ml-1 p-1 bg-red-500 rounded-full text-white hover:bg-red-600 transition-colors cursor-pointer"
+                                        title="Hapus Kategori"
+                                    >
+                                        <Trash2 size={10} />
+                                    </div>
+                                )}
                             </button>
                         )
                     })}
                   </div>
-                  <div className="h-6 w-[1px] bg-gray-300 mx-1"></div>
-                  <button onClick={() => setShowAddCategory(true)} className="p-1.5 rounded-full bg-gray-100 text-gray-500 hover:bg-pink-100 hover:text-pink-500 transition"><Plus size={16}/></button>
+                  <div className="h-6 w-[1px] bg-black/10 mx-1"></div>
+                  <button onClick={() => setShowAddCategory(true)} className="p-1.5 rounded-full bg-white/50 text-gray-600 hover:bg-white hover:text-pink-500 transition shadow-sm"><Plus size={16}/></button>
                 </div>
              </div>
 
@@ -776,10 +908,20 @@ export default function DashboardPage() {
              <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
                  
                  {/* LEFT PANEL: PLAYER */}
-                 <div className="w-full md:w-[350px] shrink-0 bg-white/60 backdrop-blur-xl border-b md:border-b-0 md:border-r border-white/50 p-4 flex flex-col items-center justify-center relative shadow-sm z-10 transition-all">
-                      <div className="relative w-32 h-32 md:w-64 md:h-64 mb-4 md:mb-8 transition-all duration-500">
-                            {/* GLOW EFFECT */}
-                            <div className={`absolute inset-0 bg-pink-500 rounded-full blur-2xl opacity-20 scale-110 ${isPlayingAudio ? 'animate-pulse' : ''}`}></div>
+                 {/* Background Player juga berubah tapi lebih transparan (tint) */}
+                 <div 
+                    className="w-full md:w-[350px] shrink-0 backdrop-blur-xl border-b md:border-b-0 md:border-r border-white/50 p-4 flex flex-col items-center justify-center relative shadow-sm z-10 transition-colors duration-500"
+                    style={{ backgroundColor: isHex ? `${activeColor}20` : '' }} // 20 = hex opacity ~12%
+                 >
+                      {/* Fallback Tailwind Class kalau bukan hex */}
+                      {!isHex && <div className={`absolute inset-0 opacity-10 ${activeColor}`}></div>}
+
+                      <div className="relative w-32 h-32 md:w-64 md:h-64 mb-4 md:mb-8 transition-all duration-500 z-10">
+                            {/* GLOW EFFECT MENGIKUTI WARNA */}
+                            <div 
+                                className={`absolute inset-0 rounded-full blur-3xl opacity-30 scale-110 ${isPlayingAudio ? 'animate-pulse' : ''}`}
+                                style={{ backgroundColor: isHex ? activeColor : 'pink' }}
+                            ></div>
                             
                             {/* VINYL */}
                             <motion.div 
@@ -799,32 +941,58 @@ export default function DashboardPage() {
                       </div>
 
                       {/* SONG INFO */}
-                      <div className="text-center w-full mb-4">
+                      <div className="text-center w-full mb-4 z-10">
                           <h3 className="font-bold text-gray-800 text-lg md:text-xl line-clamp-1">{playlist[currentSongIndex]?.title || "Pilih Lagu"}</h3>
-                          <p className="text-xs font-bold text-pink-500 uppercase tracking-widest">{categories.find(c => c.id === selectedCategoryId)?.name || "Playlist Kita"}</p>
+                          <p 
+                            className="text-xs font-bold uppercase tracking-widest mt-1"
+                            style={{ color: isHex ? activeColor : '#EC4899' }}
+                          >
+                            {categories.find(c => String(c.id) === String(selectedCategoryId))?.name || "Playlist Kita"}
+                          </p>
                       </div>
 
                       {/* CONTROLS */}
-                      <div className="flex items-center gap-6">
-                          <button onClick={prevSong} className="text-gray-400 hover:text-pink-500 transition active:scale-95"><SkipBack size={28} /></button>
-                          <button onClick={toggleAudio} className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-pink-500 to-red-400 rounded-full text-white shadow-lg hover:shadow-pink-300/50 flex items-center justify-center transition active:scale-90">
+                      <div className="flex items-center gap-6 z-10">
+                          <button onClick={prevSong} className="text-gray-400 hover:text-gray-600 transition active:scale-95"><SkipBack size={28} /></button>
+                          
+                          {/* FIX: Tombol Play diberi warna Pink jika kategori 'Semua' (biar icon putih kelihatan) */}
+                          <button 
+                            onClick={toggleAudio} 
+                            className="w-14 h-14 md:w-16 md:h-16 rounded-full text-white shadow-lg flex items-center justify-center transition active:scale-90"
+                            style={{ 
+                                backgroundColor: selectedCategoryId === 'all' 
+                                    ? '#EC4899' // Paksa Pink jika 'Semua' 
+                                    : (isHex ? activeColor : '#EC4899') 
+                            }} 
+                          >
                                 {isPlayingAudio ? <Pause size={24} fill="white"/> : <PlayIcon size={24} fill="white" className="ml-1"/>}
                           </button>
-                          <button onClick={nextSong} className="text-gray-400 hover:text-pink-500 transition active:scale-95"><SkipForward size={28}/></button>
+
+                          <button onClick={nextSong} className="text-gray-400 hover:text-gray-600 transition active:scale-95"><SkipForward size={28}/></button>
                       </div>
                  </div>
 
-                 {/* RIGHT PANEL: PLAYLIST */}
-                 <div className="flex-1 bg-white/40 backdrop-blur-md overflow-y-auto relative">
-                     <div className="sticky top-0 bg-white/80 backdrop-blur-md p-3 border-b border-gray-100 flex justify-between items-center z-10">
-                         <div className="flex items-center gap-2 text-gray-600 font-bold text-xs uppercase tracking-wider">
+                 {/* RIGHT PANEL: PLAYLIST - MODIFIED TO CHANGE COLOR TOO */}
+                 <div 
+                    className="flex-1 backdrop-blur-md overflow-y-auto relative transition-colors duration-500"
+                    style={{ backgroundColor: isHex ? `${activeColor}10` : 'rgba(255,255,255,0.4)' }} // Menggunakan Opacity 10 (sekitar 6%) agar tetap terbaca tapi berwarna
+                 >
+                      <div 
+                        className="sticky top-0 backdrop-blur-md p-3 border-b border-gray-100/50 flex justify-between items-center z-10 transition-colors duration-500"
+                        style={{ backgroundColor: isHex ? `${activeColor}30` : 'rgba(255,255,255,0.8)' }} // Header lebih pekat sedikit
+                      >
+                          <div className="flex items-center gap-2 text-gray-700 font-bold text-xs uppercase tracking-wider">
                              <List size={14}/> Daftar Lagu
-                         </div>
-                         <button onClick={() => setShowAddSong(true)} className="text-xs bg-pink-100 text-pink-600 font-bold px-3 py-1.5 rounded-full hover:bg-pink-200 transition flex items-center gap-1"><Plus size={12}/> Tambah</button>
-                     </div>
+                          </div>
+                          
+                          {/* FIX: Disable tombol Tambah jika di kategori 'Semua' */}
+                          {selectedCategoryId !== 'all' && (
+                             <button onClick={() => setShowAddSong(true)} className="text-xs bg-white/50 text-gray-700 font-bold px-3 py-1.5 rounded-full hover:bg-white hover:text-pink-500 transition flex items-center gap-1 shadow-sm"><Plus size={12}/> Tambah</button>
+                          )}
+                      </div>
 
-                     <div className="p-2 space-y-2 pb-20">
-                        {getFilteredPlaylist().length === 0 ? (
+                      <div className="p-2 space-y-2 pb-20">
+                         {getFilteredPlaylist().length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-40 text-gray-400">
                                 <Music size={32} className="mb-2 opacity-30"/>
                                 <p className="text-xs">Kosong nih, tambahin dong!</p>
@@ -832,25 +1000,40 @@ export default function DashboardPage() {
                         ) : (
                             getFilteredPlaylist().map((song, idx) => {
                                 const isCurrent = playlist[currentSongIndex]?.id === song.id;
+                                // Cari nama kategori untuk lagu ini (utk display di tab Semua)
+                                const songCategory = categories.find(c => String(c.id) === String(song.categoryId));
+
                                 return (
-                                    <div key={song.id} className={`group flex items-center justify-between p-3 rounded-xl transition-all border ${isCurrent ? 'bg-pink-50 border-pink-200 shadow-sm' : 'bg-white/60 border-transparent hover:bg-white hover:shadow-sm'}`}>
+                                    <div key={song.id} className={`group flex items-center justify-between p-3 rounded-xl transition-all border ${isCurrent ? 'bg-white border-gray-200 shadow-md' : 'bg-white/40 border-transparent hover:bg-white hover:shadow-sm'}`}>
                                         
                                         {/* Klik Area untuk Play */}
                                         <div className="flex items-center gap-3 flex-1 cursor-pointer min-w-0" onClick={() => { 
                                             const mainIdx = playlist.findIndex(s => s.id === song.id);
                                             setCurrentSongIndex(mainIdx); setIsPlayingAudio(true); 
                                         }}>
-                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden ${isCurrent ? 'ring-2 ring-pink-500' : 'bg-gray-100'}`}>
+                                            <div 
+                                                className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden ${isCurrent ? 'ring-2' : 'bg-gray-100'}`}
+                                                // GUNAKAN --tw-ring-color DAN CASTING TYPE
+                                                style={isCurrent && isHex ? { '--tw-ring-color': activeColor } as React.CSSProperties : {}} 
+                                            >
                                                 {song.cover_url ? (
                                                     <img src={song.cover_url} alt="art" className="w-full h-full object-cover" />
                                                 ) : (
-                                                    isCurrent && isPlayingAudio ? <Music size={16} className="text-pink-500 animate-bounce"/> : <Disc size={16} className="text-gray-400"/>
+                                                    isCurrent && isPlayingAudio ? <Music size={16} style={{ color: isHex ? activeColor : '#EC4899' }} className="animate-bounce"/> : <Disc size={16} className="text-gray-400"/>
                                                 )}
                                             </div>
 
                                             <div className="flex-1 min-w-0">
-                                                <h4 className={`text-sm font-bold truncate ${isCurrent ? 'text-pink-600' : 'text-gray-700'}`}>{song.title}</h4>
-                                                <p className="text-[10px] text-gray-400">Audio • Mp3</p>
+                                                <h4 className={`text-sm font-bold truncate ${isCurrent ? 'text-gray-900' : 'text-gray-700'}`}>{song.title}</h4>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-[10px] text-gray-400">Audio • Mp3</p>
+                                                    {/* FIX: Tampilkan Label Kategori jika sedang di tab 'Semua' */}
+                                                    {selectedCategoryId === 'all' && songCategory && (
+                                                        <span className="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200 truncate max-w-[80px]">
+                                                            {songCategory.name}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             
                                             {isCurrent && <div className="p-1.5 bg-green-100 text-green-600 rounded-full mr-2"><Volume2 size={12}/></div>}
@@ -868,26 +1051,100 @@ export default function DashboardPage() {
                                 )
                             })
                         )}
-                     </div>
+                      </div>
                  </div>
              </div>
 
-             {/* MODALS (Add Category & Add Song) */}
+             {/* MODALS (Add Category & Add Song & Delete Confirmation) */}
              <AnimatePresence>
+                {/* 1. Modal Hapus Kategori */}
+                {deleteModal.isOpen && (
+                    <div className="absolute inset-0 z-[60] bg-black/30 backdrop-blur-sm flex items-center justify-center p-4">
+                        <motion.div 
+                            initial={{ scale: 0.9, opacity: 0 }} 
+                            animate={{ scale: 1, opacity: 1 }} 
+                            exit={{ scale: 0.9, opacity: 0 }} 
+                            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center"
+                        >
+                            <div className={`w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-4 ${deleteModal.songCount > 0 ? 'bg-red-100 text-red-500' : 'bg-yellow-100 text-yellow-600'}`}>
+                                <AlertTriangle size={32} />
+                            </div>
+                            
+                            <h3 className="font-bold text-gray-800 text-lg mb-2">Hapus Mood?</h3>
+                            
+                            <p className="text-sm text-gray-500 mb-6">
+                                {deleteModal.songCount > 0 ? (
+                                    <>
+                                        Waduh! Kategori <b>&quot;{deleteModal.categoryName}&quot;</b> ini berisi <span className="font-bold text-red-500">{deleteModal.songCount} lagu</span>. Semuanya bakal ikut kehapus lho! 😱
+                                    </>
+                                ) : (
+                                    <>
+                                        Yakin mau hapus kategori <b>&quot;{deleteModal.categoryName}&quot;</b>?
+                                    </>
+                                )}
+                            </p>
+
+                            <div className="flex gap-3">
+                                <button 
+                                    onClick={() => setDeleteModal({ isOpen: false, categoryId: null, categoryName: "", songCount: 0 })} 
+                                    className="flex-1 py-3 text-gray-600 font-bold bg-gray-100 hover:bg-gray-200 rounded-xl text-sm transition-colors"
+                                >
+                                    Batal
+                                </button>
+                                <button 
+                                    onClick={executeDeleteCategory} 
+                                    className={`flex-1 py-3 text-white font-bold rounded-xl text-sm shadow-md transition-transform active:scale-95 ${deleteModal.songCount > 0 ? 'bg-red-500 hover:bg-red-600' : 'bg-pink-500 hover:bg-pink-600'}`}
+                                >
+                                    {deleteModal.songCount > 0 ? 'Hapus Semua' : 'Ya, Hapus'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+
+                {/* 2. Modal Tambah Kategori */}
                 {showAddCategory && (
                     <div className="absolute inset-0 z-50 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
                         <motion.div initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} exit={{scale:0.9, opacity:0}} className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl">
                             <h3 className="font-bold text-gray-800 mb-3">Mood Baru</h3>
-                            <input className="w-full p-3 bg-gray-50 rounded-xl mb-3 text-sm border focus:border-pink-300 outline-none" placeholder="Nama Mood..." value={newCategory.name} onChange={e => setNewCategory({...newCategory, name: e.target.value})} />
-                            <div className="grid grid-cols-5 gap-2 mb-4">
-                                {MOOD_ICONS.map((m) => (
-                                    <button key={m.id} onClick={() => setNewCategory({...newCategory, icon: m.id})} className={`p-2 rounded-lg border flex justify-center items-center ${newCategory.icon === m.id ? 'bg-pink-50 border-pink-500 text-pink-600' : 'border-gray-100 text-gray-400'}`}><m.icon size={20}/></button>
-                                ))}
+                            <input className="w-full p-3 bg-gray-50 rounded-xl mb-3 text-sm border focus:border-pink-300 outline-none" placeholder="Nama Mood... (Contoh: Galau 😭)" value={newCategory.name} onChange={e => setNewCategory({...newCategory, name: e.target.value})} />
+                            
+                            {/* COLOR PICKER & ICONS */}
+                            <div className="mb-4">
+                                <label className="text-xs font-bold text-gray-500 mb-2 block">Pilih Warna & Ikon:</label>
+                                <div className="flex items-center gap-4 mb-4 bg-gray-50 p-3 rounded-xl">
+                                    {/* COLOR PICKER LINGKARAN */}
+                                    <div className="relative shrink-0 group">
+                                         <input 
+                                            type="color" 
+                                            value={newCategory.color} 
+                                            onChange={(e) => setNewCategory({...newCategory, color: e.target.value})}
+                                            className="w-10 h-10 rounded-full overflow-hidden cursor-pointer border-none p-0 bg-transparent"
+                                            title="Pilih Warna"
+                                         />
+                                         <div className="absolute inset-0 rounded-full ring-2 ring-gray-200 pointer-events-none group-hover:ring-pink-300 transition-all"></div>
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                        Geser warna di lingkaran <br/> sesuai mood kamu!
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-4 gap-2">
+                                    {MOOD_ICONS.map((m) => (
+                                        <button key={m.id} onClick={() => setNewCategory({...newCategory, icon: m.id})} className={`p-2 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all ${newCategory.icon === m.id ? 'bg-pink-50 border-pink-500 text-pink-600 shadow-sm' : 'border-gray-100 text-gray-400 hover:bg-gray-50'}`}>
+                                            <m.icon size={20}/>
+                                            <span className="text-[10px] font-medium">{m.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
+
                             <div className="flex gap-2"><button onClick={() => setShowAddCategory(false)} className="flex-1 py-2 text-gray-500 font-bold bg-gray-100 rounded-xl text-sm">Batal</button><button onClick={handleAddCategory} className="flex-1 py-2 text-white font-bold bg-pink-500 rounded-xl text-sm">Simpan</button></div>
                         </motion.div>
                     </div>
                 )}
+                
+                {/* 3. Modal Tambah Lagu */}
                 {showAddSong && (
                     <div className="absolute inset-0 z-50 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4">
                         <motion.div initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} exit={{scale:0.9, opacity:0}} className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -963,7 +1220,7 @@ export default function DashboardPage() {
            <div className="hidden md:flex justify-between items-center p-6 border-b border-pink-50">
                <div className="flex items-center gap-2"><div className="bg-pink-500 p-2 rounded-full text-white"><Heart size={20} fill="white" /></div><span className="font-bold text-pink-600 text-xl">Rere Sayang</span></div>
                <div className="flex gap-6">
-                   {[{id: 'home', label: 'Home'}, {id: 'game', label: 'Game'}, {id: 'calendar', label: 'Calendar'}, {id: 'music', label: 'Lagu'}, {id: 'notes', label: 'Notes'}].map(link => (
+                   {[{id: 'home', label: 'Home'}, {id: 'game', label: 'Game'}, {id: 'calendar', label: 'Calendar'}, {id: 'music', label: 'Music'}, {id: 'notes', label: 'Notes'}].map(link => (
                        <button key={link.id} onClick={()=>setActiveTab(link.id)} className={`text-sm font-bold transition-colors ${activeTab===link.id ? 'text-pink-600 bg-pink-50 px-3 py-1 rounded-full' : 'text-gray-400 hover:text-pink-500'}`}>{link.label}</button>
                    ))}
                </div>
